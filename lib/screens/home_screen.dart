@@ -4,7 +4,18 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/coffee_palette.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+    required this.cartCount,
+    required this.cartTotal,
+    required this.onQuickAdd,
+    required this.onCartTap,
+  });
+
+  final int cartCount;
+  final double cartTotal;
+  final void Function(String name, double price) onQuickAdd;
+  final VoidCallback onCartTap;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +87,10 @@ class HomeScreen extends StatelessWidget {
                     separatorBuilder: (_, __) => const SizedBox(width: 14),
                     itemBuilder: (context, index) {
                       final item = _homeFavorites[index];
-                      return _FavoriteCard(item: item);
+                      return _FavoriteCard(
+                        item: item,
+                        onQuickAdd: () => onQuickAdd(item.name, item.price),
+                      );
                     },
                   ),
                 ),
@@ -108,11 +122,15 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
-        const Positioned(
+        Positioned(
           left: 20,
           right: 20,
           bottom: 20,
-          child: _CartBar(),
+          child: _CartBar(
+            cartCount: cartCount,
+            cartTotal: cartTotal,
+            onTap: onCartTap,
+          ),
         ),
       ],
     );
@@ -199,9 +217,13 @@ class _StorePill extends StatelessWidget {
 }
 
 class _FavoriteCard extends StatelessWidget {
-  const _FavoriteCard({required this.item});
+  const _FavoriteCard({
+    required this.item,
+    required this.onQuickAdd,
+  });
 
   final FavoriteDrink item;
+  final VoidCallback onQuickAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +294,7 @@ class _FavoriteCard extends StatelessWidget {
           SizedBox(
             height: 34,
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: onQuickAdd,
               icon: const Icon(Icons.local_cafe, size: 18),
               label: const Text('Quick Add'),
               style: ElevatedButton.styleFrom(
@@ -325,49 +347,62 @@ class _CategoryChip extends StatelessWidget {
 }
 
 class _CartBar extends StatelessWidget {
-  const _CartBar();
+  const _CartBar({
+    required this.cartCount,
+    required this.cartTotal,
+    required this.onTap,
+  });
+
+  final int cartCount;
+  final double cartTotal;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      decoration: BoxDecoration(
-        color: CoffeePalette.espresso,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.shopping_bag, color: Colors.white),
-              const SizedBox(width: 10),
-              Text(
-                '2 Items • \$9.75',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          Container(
-            height: 34,
-            width: 34,
-            decoration: const BoxDecoration(
-              color: CoffeePalette.caramel,
-              shape: BoxShape.circle,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: CoffeePalette.espresso,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 18,
+              offset: Offset(0, 8),
             ),
-            child: const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-          ),
-        ],
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.shopping_bag, color: Colors.white),
+                const SizedBox(width: 10),
+                Text(
+                  '$cartCount Items • \$${cartTotal.toStringAsFixed(2)}',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              height: 34,
+              width: 34,
+              decoration: const BoxDecoration(
+                color: CoffeePalette.caramel,
+                shape: BoxShape.circle,
+              ),
+              child:
+                  const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -377,11 +412,13 @@ class FavoriteDrink {
   const FavoriteDrink({
     required this.name,
     required this.subtitle,
+    required this.price,
     required this.icon,
   });
 
   final String name;
   final String subtitle;
+  final double price;
   final IconData icon;
 }
 
@@ -389,16 +426,19 @@ const _homeFavorites = [
   FavoriteDrink(
     name: 'Iced Oat Milk Latte',
     subtitle: '2 shots, 50% sweet',
+    price: 5.25,
     icon: Icons.coffee_rounded,
   ),
   FavoriteDrink(
     name: 'Cold Brew',
     subtitle: 'Smooth, bold',
+    price: 4.50,
     icon: Icons.icecream,
   ),
   FavoriteDrink(
     name: 'Almond Croissant',
     subtitle: 'Warm & flaky',
+    price: 3.75,
     icon: Icons.bakery_dining,
   ),
 ];

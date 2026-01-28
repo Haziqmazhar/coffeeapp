@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../theme/coffee_palette.dart';
+import 'drink_detail_screen.dart';
 
 class MenuScreen extends StatelessWidget {
-  const MenuScreen({super.key});
+  const MenuScreen({super.key, required this.onAddToCart});
+
+  final void Function(String name, double price) onAddToCart;
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +44,24 @@ class MenuScreen extends StatelessWidget {
               itemCount: _menuItems.length,
               separatorBuilder: (_, __) => const SizedBox(height: 14),
               itemBuilder: (context, index) {
-                final item = _menuItems[index];
-                return _MenuRow(item: item);
+                      final item = _menuItems[index];
+                      return _MenuRow(
+                        item: item,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => DrinkDetailScreen(
+                                name: item.name,
+                                subtitle: item.subtitle,
+                                basePrice: item.priceValue,
+                                onAddToCart: (price) {
+                                  onAddToCart(item.name, price);
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      );
               },
             ),
           ),
@@ -79,55 +98,63 @@ class _MenuTab extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.item});
+  const _MenuRow({required this.item, required this.onTap});
 
   final MenuItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: CoffeePalette.card,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            height: 56,
-            width: 56,
-            decoration: BoxDecoration(
-              color: CoffeePalette.caramelSoft,
-              borderRadius: BorderRadius.circular(16),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: CoffeePalette.card,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 12,
+              offset: Offset(0, 6),
             ),
-            child: Icon(item.icon, color: CoffeePalette.espresso),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.name, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text(item.subtitle, style: Theme.of(context).textTheme.bodyMedium),
-              ],
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 56,
+              width: 56,
+              decoration: BoxDecoration(
+                color: CoffeePalette.caramelSoft,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(item.icon, color: CoffeePalette.espresso),
             ),
-          ),
-          Text(
-            item.price,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(color: CoffeePalette.espresso),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.name, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.subtitle,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              item.priceLabel,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(color: CoffeePalette.espresso),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -137,39 +164,41 @@ class MenuItem {
   const MenuItem({
     required this.name,
     required this.subtitle,
-    required this.price,
+    required this.priceValue,
     required this.icon,
   });
 
   final String name;
   final String subtitle;
-  final String price;
+  final double priceValue;
   final IconData icon;
+
+  String get priceLabel => '\$${priceValue.toStringAsFixed(2)}';
 }
 
 const _menuItems = [
   MenuItem(
     name: 'Iced Oat Milk Latte',
     subtitle: '2 shots, 50% sweet',
-    price: '\$5.25',
+    priceValue: 5.25,
     icon: Icons.coffee_rounded,
   ),
   MenuItem(
     name: 'Cold Brew',
     subtitle: 'Smooth, bold',
-    price: '\$4.50',
+    priceValue: 4.50,
     icon: Icons.icecream,
   ),
   MenuItem(
     name: 'Caramel Cappuccino',
     subtitle: 'Foamy with caramel drizzle',
-    price: '\$5.75',
+    priceValue: 5.75,
     icon: Icons.local_cafe,
   ),
   MenuItem(
     name: 'Seasonal Spice Latte',
     subtitle: 'Limited batch, cozy blend',
-    price: '\$6.10',
+    priceValue: 6.10,
     icon: Icons.local_drink,
   ),
 ];
