@@ -7,6 +7,7 @@ A new Flutter project.
 - `lib/main.dart`: App shell + theme
 - `lib/screens/`: Screen files (home, menu, orders, account)
 - `lib/theme/`: Color palette
+- `lib/data/`: Supabase client
 
 ## Getting Started
 

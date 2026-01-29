@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/drinks_service.dart';
 import '../theme/coffee_palette.dart';
 import 'drink_detail_screen.dart';
 
@@ -10,6 +11,7 @@ class MenuScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final drinksService = DrinksService();
     return SafeArea(
       child: Column(
         children: [
@@ -39,29 +41,64 @@ class MenuScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-              itemCount: _menuItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 14),
-              itemBuilder: (context, index) {
-                      final item = _menuItems[index];
-                      return _MenuRow(
-                        item: item,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => DrinkDetailScreen(
-                                name: item.name,
-                                subtitle: item.subtitle,
-                                basePrice: item.priceValue,
-                                onAddToCart: (price) {
-                                  onAddToCart(item.name, price);
-                                },
-                              ),
+            child: FutureBuilder<List<Drink>>(
+              future: drinksService.fetchDrinks(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Failed to load menu.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  );
+                }
+                final drinks = snapshot.data ?? [];
+                if (drinks.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No drinks available yet.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  itemCount: drinks.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (context, index) {
+                    final drink = drinks[index];
+                    return _MenuRow(
+                      item: _MenuItemView(
+                        name: drink.name,
+                        subtitle: drink.description.isEmpty
+                            ? 'Freshly crafted'
+                            : drink.description,
+                        priceValue: drink.price,
+                        icon: Icons.local_cafe,
+                        imagePath: _drinkImageMap[drink.name],
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => DrinkDetailScreen(
+                              name: drink.name,
+                              subtitle: drink.description.isEmpty
+                                  ? 'Freshly crafted'
+                                  : drink.description,
+                              basePrice: drink.price,
+                              onAddToCart: (price) {
+                                onAddToCart(drink.name, price);
+                              },
                             ),
-                          );
-                        },
-                      );
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
               },
             ),
           ),
@@ -100,7 +137,7 @@ class _MenuTab extends StatelessWidget {
 class _MenuRow extends StatelessWidget {
   const _MenuRow({required this.item, required this.onTap});
 
-  final MenuItem item;
+  final _MenuItemView item;
   final VoidCallback onTap;
 
   @override
@@ -130,7 +167,17 @@ class _MenuRow extends StatelessWidget {
                 color: CoffeePalette.caramelSoft,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(item.icon, color: CoffeePalette.espresso),
+              child: item.imagePath == null
+                  ? Icon(item.icon, color: CoffeePalette.espresso)
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        item.imagePath!,
+                        fit: BoxFit.cover,
+                        width: 56,
+                        height: 56,
+                      ),
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -160,45 +207,26 @@ class _MenuRow extends StatelessWidget {
   }
 }
 
-class MenuItem {
-  const MenuItem({
+class _MenuItemView {
+  const _MenuItemView({
     required this.name,
     required this.subtitle,
     required this.priceValue,
     required this.icon,
+    required this.imagePath,
   });
 
   final String name;
   final String subtitle;
   final double priceValue;
   final IconData icon;
+  final String? imagePath;
 
   String get priceLabel => '\$${priceValue.toStringAsFixed(2)}';
 }
 
-const _menuItems = [
-  MenuItem(
-    name: 'Iced Oat Milk Latte',
-    subtitle: '2 shots, 50% sweet',
-    priceValue: 5.25,
-    icon: Icons.coffee_rounded,
-  ),
-  MenuItem(
-    name: 'Cold Brew',
-    subtitle: 'Smooth, bold',
-    priceValue: 4.50,
-    icon: Icons.icecream,
-  ),
-  MenuItem(
-    name: 'Caramel Cappuccino',
-    subtitle: 'Foamy with caramel drizzle',
-    priceValue: 5.75,
-    icon: Icons.local_cafe,
-  ),
-  MenuItem(
-    name: 'Seasonal Spice Latte',
-    subtitle: 'Limited batch, cozy blend',
-    priceValue: 6.10,
-    icon: Icons.local_drink,
-  ),
-];
+const _drinkImageMap = {
+  'Classic Latte': 'assets/images/latte.jpg',
+  'Strawberry Latte': 'assets/images/strawberrylatte.jpg',
+  'Matcha Latte': 'assets/images/matchalatte.jpg',
+};

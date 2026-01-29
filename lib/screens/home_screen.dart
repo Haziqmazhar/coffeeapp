@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../data/drinks_service.dart';
+import '../data/profile_service.dart';
+import '../data/supabase_client.dart';
 import '../theme/coffee_palette.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -60,8 +63,6 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _TopDate(),
-                const SizedBox(height: 6),
                 _TopBar(),
                 const SizedBox(height: 10),
                 Align(
@@ -72,29 +73,49 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Text(
-                  'Good Morning, Alex.',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
+                const _GreetingText(),
                 const SizedBox(height: 20),
                 Text('The Usual', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 240,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _homeFavorites.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 14),
-                    itemBuilder: (context, index) {
-                      final item = _homeFavorites[index];
-                      return _FavoriteCard(
-                        item: item,
-                        onQuickAdd: () => onQuickAdd(item.name, item.price),
+                  child: FutureBuilder<List<Drink>>(
+                    future: DrinksService().fetchDrinks(),
+                    builder: (context, snapshot) {
+                      final drinks = snapshot.data;
+                      final items = drinks == null || drinks.isEmpty
+                          ? _homeFavorites
+                          : drinks
+                              .take(3)
+                              .map(
+                                (drink) => FavoriteDrink(
+                                  name: drink.name,
+                                  subtitle: drink.description.isEmpty
+                                      ? 'Freshly crafted'
+                                      : drink.description,
+                                  price: drink.price,
+                                  imagePath:
+                                      _drinkImageMap[drink.name] ??
+                                          _homeFavorites.first.imagePath,
+                                ),
+                              )
+                              .toList();
+                      return ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 14),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          return _FavoriteCard(
+                            item: item,
+                            onQuickAdd: () => onQuickAdd(item.name, item.price),
+                          );
+                        },
                       );
                     },
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 Text('Seapress', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),
                 Row(
@@ -140,19 +161,16 @@ class HomeScreen extends StatelessWidget {
 class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const CircleAvatar(
-          radius: 18,
-          backgroundColor: CoffeePalette.caramelSoft,
-          child: Icon(Icons.person, color: CoffeePalette.espresso),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Text(
+        'CoffeeArq',
+        style: GoogleFonts.baloo2(
+          fontSize: 26,
+          fontWeight: FontWeight.w700,
+          color: CoffeePalette.espresso,
         ),
-        const SizedBox(width: 10),
-        Text(
-          'CoffeeArq',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -168,6 +186,37 @@ class _TopDate extends StatelessWidget {
         'Wednesday, January 28, 2026 at 9:11 AM',
         style: Theme.of(context).textTheme.bodySmall,
       ),
+    );
+  }
+}
+
+class _GreetingText extends StatelessWidget {
+  const _GreetingText();
+
+  @override
+  Widget build(BuildContext context) {
+    final profileService = ProfileService();
+    final session = supabase.auth.currentSession;
+
+    if (session == null) {
+      return Text(
+        'Good Morning.',
+        style: Theme.of(context).textTheme.headlineLarge,
+      );
+    }
+
+    return FutureBuilder<Profile?>(
+      future: profileService.fetchProfile(),
+      builder: (context, snapshot) {
+        final name = snapshot.data?.name;
+        final greeting = name == null || name.isEmpty
+            ? 'Good Morning.'
+            : 'Good Morning, $name.';
+        return Text(
+          greeting,
+          style: Theme.of(context).textTheme.headlineLarge,
+        );
+      },
     );
   }
 }
@@ -242,6 +291,7 @@ class _FavoriteCard extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Align(
@@ -260,18 +310,13 @@ class _FavoriteCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Center(
-                child: Container(
-                  height: 82,
-                  width: 82,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [CoffeePalette.caramelSoft, CoffeePalette.latte],
-                    ),
-                  ),
-                  child: Icon(item.icon,
-                      color: CoffeePalette.espresso, size: 34),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Image.asset(
+                  item.imagePath,
+                  fit: BoxFit.cover,
+                  width: 120,
+                  height: 110,
                 ),
               ),
             ),
@@ -290,9 +335,9 @@ class _FavoriteCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 34,
+            height: 32,
             child: ElevatedButton.icon(
               onPressed: onQuickAdd,
               icon: const Icon(Icons.local_cafe, size: 18),
@@ -321,27 +366,33 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          height: 64,
-          width: 64,
-          decoration: const BoxDecoration(
-            color: CoffeePalette.espresso,
-            shape: BoxShape.circle,
+    return SizedBox(
+      height: 112,
+      width: 80,
+      child: Column(
+        children: [
+          Container(
+            height: 64,
+            width: 64,
+            decoration: const BoxDecoration(
+              color: CoffeePalette.espresso,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white),
           ),
-          child: Icon(icon, color: Colors.white),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 76,
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 36,
+            child: Center(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -413,32 +464,38 @@ class FavoriteDrink {
     required this.name,
     required this.subtitle,
     required this.price,
-    required this.icon,
+    required this.imagePath,
   });
 
   final String name;
   final String subtitle;
   final double price;
-  final IconData icon;
+  final String imagePath;
 }
 
 const _homeFavorites = [
   FavoriteDrink(
-    name: 'Iced Oat Milk Latte',
-    subtitle: '2 shots, 50% sweet',
+    name: 'Classic Latte',
+    subtitle: 'Smooth, creamy',
     price: 5.25,
-    icon: Icons.coffee_rounded,
+    imagePath: 'assets/images/latte.jpg',
   ),
   FavoriteDrink(
-    name: 'Cold Brew',
-    subtitle: 'Smooth, bold',
+    name: 'Strawberry Latte',
+    subtitle: 'Berry cream blend',
     price: 4.50,
-    icon: Icons.icecream,
+    imagePath: 'assets/images/strawberrylatte.jpg',
   ),
   FavoriteDrink(
-    name: 'Almond Croissant',
-    subtitle: 'Warm & flaky',
+    name: 'Matcha Latte',
+    subtitle: 'Green tea delight',
     price: 3.75,
-    icon: Icons.bakery_dining,
+    imagePath: 'assets/images/matchalatte.jpg',
   ),
 ];
+
+const _drinkImageMap = {
+  'Classic Latte': 'assets/images/latte.jpg',
+  'Strawberry Latte': 'assets/images/strawberrylatte.jpg',
+  'Matcha Latte': 'assets/images/matchalatte.jpg',
+};

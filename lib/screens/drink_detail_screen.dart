@@ -50,6 +50,17 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen> {
     return (widget.basePrice * _sizeMultiplier) + addonsTotal;
   }
 
+  String get _sizeLabel => ['S', 'M', 'L'][_sizeIndex];
+  String get _milkLabel => ['Oat', 'Almond', 'Whole'][_milkIndex];
+  String get _sweetLabel => ['0%', '25%', '50%', '100%'][_sweetIndex];
+
+  String get _selectionSummary {
+    final addons = _selectedAddons.isEmpty
+        ? 'No add-ons'
+        : _selectedAddons.join(', ');
+    return 'Size: $_sizeLabel • Milk: $_milkLabel • Sweet: $_sweetLabel • $addons';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,6 +146,27 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen> {
                   checkmarkColor: CoffeePalette.espresso,
                 );
               }).toList(),
+            ),
+            const SizedBox(height: 16),
+            _SectionTitle(label: 'Ingredients'),
+            const SizedBox(height: 8),
+            Text(
+              'Espresso, ${_milkLabel.toLowerCase()} milk, ice',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            _SectionTitle(label: 'Calories'),
+            const SizedBox(height: 8),
+            Text(
+              'Approx. 180 kcal',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            _SectionTitle(label: 'Your Selection'),
+            const SizedBox(height: 8),
+            Text(
+              _selectionSummary,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
             _SectionTitle(label: 'Notes (optional)'),

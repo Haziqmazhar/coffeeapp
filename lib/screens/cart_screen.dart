@@ -10,12 +10,16 @@ class CartScreen extends StatefulWidget {
     required this.total,
     required this.onUpdateQuantity,
     required this.onRemoveItem,
+    required this.onCheckoutComplete,
+    required this.onReorder,
   });
 
   final List<CartItem> items;
   final double total;
   final void Function(String name, int delta) onUpdateQuantity;
   final void Function(String name) onRemoveItem;
+  final VoidCallback onCheckoutComplete;
+  final void Function(List<CartItem> items) onReorder;
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -127,6 +131,8 @@ class _CartScreenState extends State<CartScreen> {
                       builder: (_) => CheckoutScreen(
                         items: widget.items,
                         subtotal: widget.total,
+                        onOrderPlaced: widget.onCheckoutComplete,
+                        onReorder: widget.onReorder,
                       ),
                     ),
                   );

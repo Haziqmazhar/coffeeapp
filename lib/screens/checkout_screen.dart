@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/orders_service.dart';
 import '../models/cart_item.dart';
 import '../theme/coffee_palette.dart';
 import 'order_status_screen.dart';
@@ -9,10 +10,14 @@ class CheckoutScreen extends StatelessWidget {
     super.key,
     required this.items,
     required this.subtotal,
+    required this.onOrderPlaced,
+    required this.onReorder,
   });
 
   final List<CartItem> items;
   final double subtotal;
+  final VoidCallback onOrderPlaced;
+  final void Function(List<CartItem> items) onReorder;
 
   double get _tax => subtotal * 0.08;
   double get _total => subtotal + _tax;
@@ -67,30 +72,89 @@ class CheckoutScreen extends StatelessWidget {
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: ElevatedButton(
-          onPressed: items.isEmpty
-              ? null
-              : () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => OrderStatusScreen(
-                        items: items,
-                        total: _total,
-                      ),
-                    ),
-                  );
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: CoffeePalette.espresso,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-          ),
-          child: Text('Place Order  \$${_total.toStringAsFixed(2)}'),
+        child: _PlaceOrderButton(
+          items: items,
+          total: _total,
+          onOrderPlaced: onOrderPlaced,
+          onReorder: onReorder,
         ),
       ),
+    );
+  }
+}
+
+class _PlaceOrderButton extends StatefulWidget {
+  const _PlaceOrderButton({
+    required this.items,
+    required this.total,
+    required this.onOrderPlaced,
+    required this.onReorder,
+  });
+
+  final List<CartItem> items;
+  final double total;
+  final VoidCallback onOrderPlaced;
+  final void Function(List<CartItem> items) onReorder;
+
+  @override
+  State<_PlaceOrderButton> createState() => _PlaceOrderButtonState();
+}
+
+class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
+  bool _submitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: widget.items.isEmpty || _submitting
+          ? null
+          : () async {
+              setState(() => _submitting = true);
+              try {
+                final service = OrdersService();
+                final order = await service.createOrder(
+                  items: widget.items,
+                  total: widget.total,
+                );
+                widget.onOrderPlaced();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Order placed')),
+                );
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => OrderStatusScreen(
+                      order: order,
+                      items: widget.items,
+                      total: widget.total,
+                      onReorder: widget.onReorder,
+                    ),
+                  ),
+                );
+              } catch (_) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to place order.')),
+                );
+              } finally {
+                if (mounted) setState(() => _submitting = false);
+              }
+            },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: CoffeePalette.espresso,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+      ),
+      child: _submitting
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text('Place Order  \$${widget.total.toStringAsFixed(2)}'),
     );
   }
 }

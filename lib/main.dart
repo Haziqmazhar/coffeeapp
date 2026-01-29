@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'models/cart_item.dart';
 import 'screens/account_screen.dart';
@@ -9,7 +10,13 @@ import 'screens/menu_screen.dart';
 import 'screens/orders_screen.dart';
 import 'theme/coffee_palette.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://cowndvyhxurynathkpnj.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvd25kdnloeHVyeW5hdGhrcG5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2NzE5NzUsImV4cCI6MjA4NTI0Nzk3NX0.mPES4IvjzHBDhhprKElMrE35wpCLBkdl97ThbGqx5uk',
+  );
   runApp(const CoffeeArqApp());
 }
 
@@ -28,6 +35,26 @@ class CoffeeArqApp extends StatelessWidget {
           primary: CoffeePalette.espresso,
           secondary: CoffeePalette.caramel,
           surface: CoffeePalette.card,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: CoffeePalette.card,
+          indicatorColor: CoffeePalette.caramelSoft,
+          iconTheme: WidgetStateProperty.resolveWith(
+            (states) => IconThemeData(
+              color: states.contains(WidgetState.selected)
+                  ? CoffeePalette.espresso
+                  : CoffeePalette.espressoSoft,
+            ),
+          ),
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (states) => TextStyle(
+              color: states.contains(WidgetState.selected)
+                  ? CoffeePalette.espresso
+                  : CoffeePalette.espressoSoft,
+              fontWeight:
+                  states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
         ),
         textTheme: GoogleFonts.manropeTextTheme(base.textTheme).copyWith(
           headlineLarge: GoogleFonts.fraunces(
@@ -110,6 +137,18 @@ class _RootShellState extends State<RootShell> {
     });
   }
 
+  void _clearCart() {
+    setState(() => _cartItems.clear());
+  }
+
+  void _setCartItems(List<CartItem> items) {
+    setState(() {
+      _cartItems
+        ..clear()
+        ..addAll(items);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
@@ -125,6 +164,8 @@ class _RootShellState extends State<RootShell> {
                 total: _cartTotal,
                 onUpdateQuantity: _updateQuantity,
                 onRemoveItem: _removeItem,
+                onCheckoutComplete: _clearCart,
+                onReorder: _setCartItems,
               ),
             ),
           );
