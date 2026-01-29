@@ -4,21 +4,28 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/drinks_service.dart';
 import '../data/profile_service.dart';
 import '../data/supabase_client.dart';
+import 'drink_detail_screen.dart';
 import '../theme/coffee_palette.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
+    required this.currentStore,
     required this.cartCount,
     required this.cartTotal,
     required this.onQuickAdd,
     required this.onCartTap,
+    required this.onStoreTap,
+    required this.onCategoryTap,
   });
 
+  final String currentStore;
   final int cartCount;
   final double cartTotal;
   final void Function(String name, double price) onQuickAdd;
   final VoidCallback onCartTap;
+  final VoidCallback onStoreTap;
+  final void Function(String category) onCategoryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -68,8 +75,8 @@ class HomeScreen extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerRight,
                   child: _StorePill(
-                    label: 'Current Store: Downtown Cafe',
-                    onTap: () {},
+                    label: 'Current Store: $currentStore',
+                    onTap: onStoreTap,
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -109,6 +116,20 @@ class HomeScreen extends StatelessWidget {
                           return _FavoriteCard(
                             item: item,
                             onQuickAdd: () => onQuickAdd(item.name, item.price),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => DrinkDetailScreen(
+                                    name: item.name,
+                                    subtitle: item.subtitle,
+                                    basePrice: item.price,
+                                    onAddToCart: (price) {
+                                      onQuickAdd(item.name, price);
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
                       );
@@ -120,22 +141,26 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
+                  children: [
                     _CategoryChip(
                       icon: Icons.local_cafe_outlined,
                       label: 'Hot Coffee',
+                      onTap: () => onCategoryTap('Hot'),
                     ),
                     _CategoryChip(
                       icon: Icons.icecream_outlined,
                       label: 'Cold Drinks',
+                      onTap: () => onCategoryTap('Cold'),
                     ),
                     _CategoryChip(
                       icon: Icons.spa_outlined,
                       label: 'Seasonal',
+                      onTap: () => onCategoryTap('Seasonal'),
                     ),
                     _CategoryChip(
                       icon: Icons.bakery_dining_outlined,
                       label: 'Food',
+                      onTap: () => onCategoryTap('Food'),
                     ),
                   ],
                 ),
@@ -269,129 +294,144 @@ class _FavoriteCard extends StatelessWidget {
   const _FavoriteCard({
     required this.item,
     required this.onQuickAdd,
+    required this.onTap,
   });
 
   final FavoriteDrink item;
   final VoidCallback onQuickAdd;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 210,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: CoffeePalette.card,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 18,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              height: 110,
-              width: 120,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                color: Colors.white,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 14,
-                    offset: Offset(0, 8),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        width: 210,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: CoffeePalette.card,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 18,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                height: 110,
+                width: 120,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  color: Colors.white,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 14,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Image.asset(
+                    item.imagePath,
+                    fit: BoxFit.cover,
+                    width: 120,
+                    height: 110,
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(22),
-                child: Image.asset(
-                  item.imagePath,
-                  fit: BoxFit.cover,
-                  width: 120,
-                  height: 110,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            item.subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 32,
-            child: ElevatedButton.icon(
-              onPressed: onQuickAdd,
-              icon: const Icon(Icons.local_cafe, size: 18),
-              label: const Text('Quick Add'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: CoffeePalette.espresso,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+            const SizedBox(height: 10),
+            Text(
+              item.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              item.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 32,
+              child: ElevatedButton.icon(
+                onPressed: onQuickAdd,
+                icon: const Icon(Icons.local_cafe, size: 18),
+                label: const Text('Quick Add'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: CoffeePalette.espresso,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({required this.icon, required this.label});
+  const _CategoryChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 112,
-      width: 80,
-      child: Column(
-        children: [
-          Container(
-            height: 64,
-            width: 64,
-            decoration: const BoxDecoration(
-              color: CoffeePalette.espresso,
-              shape: BoxShape.circle,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox(
+        height: 112,
+        width: 80,
+        child: Column(
+          children: [
+            Container(
+              height: 64,
+              width: 64,
+              decoration: const BoxDecoration(
+                color: CoffeePalette.espresso,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white),
             ),
-            child: Icon(icon, color: Colors.white),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 36,
-            child: Center(
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 36,
+              child: Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

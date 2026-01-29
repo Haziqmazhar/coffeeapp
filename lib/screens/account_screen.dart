@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,19 +23,27 @@ class _AccountScreenState extends State<AccountScreen> {
   Profile? _profile;
   bool _orderUpdates = true;
   bool _pickupReminders = false;
+  StreamSubscription<AuthState>? _authSub;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
     _loadPrefs();
-    supabase.auth.onAuthStateChange.listen((_) {
+    _authSub = supabase.auth.onAuthStateChange.listen((_) {
       _loadProfile();
     });
   }
 
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _orderUpdates = prefs.getBool('pref_order_updates') ?? true;
       _pickupReminders = prefs.getBool('pref_pickup_reminders') ?? false;
@@ -55,14 +65,14 @@ class _AccountScreenState extends State<AccountScreen> {
   Future<void> _loadProfile() async {
     final session = supabase.auth.currentSession;
     if (session == null) {
-      setState(() {
-        _profile = null;
-      });
+      if (!mounted) return;
+      setState(() => _profile = null);
       return;
     }
 
     final existing = await _profileService.fetchProfile();
     if (existing != null) {
+      if (!mounted) return;
       setState(() {
         _profile = existing;
         _orderUpdates = existing.orderUpdates;
@@ -82,6 +92,7 @@ class _AccountScreenState extends State<AccountScreen> {
       orderUpdates: _orderUpdates,
       pickupReminders: _pickupReminders,
     );
+    if (!mounted) return;
     setState(() {
       _profile = created;
       _orderUpdates = created.orderUpdates;

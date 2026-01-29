@@ -4,10 +4,42 @@ import '../data/drinks_service.dart';
 import '../theme/coffee_palette.dart';
 import 'drink_detail_screen.dart';
 
-class MenuScreen extends StatelessWidget {
-  const MenuScreen({super.key, required this.onAddToCart});
+class MenuScreen extends StatefulWidget {
+  const MenuScreen({
+    super.key,
+    required this.onAddToCart,
+    this.initialCategory = 'All',
+  });
 
   final void Function(String name, double price) onAddToCart;
+  final String initialCategory;
+
+  @override
+  State<MenuScreen> createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends State<MenuScreen> {
+  static const List<String> _categories = [
+    'All',
+    'Hot',
+    'Cold',
+    'Seasonal',
+    'Food',
+  ];
+
+  late String _selectedCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = _categories.contains(widget.initialCategory)
+        ? widget.initialCategory
+        : 'All';
+  }
+
+  void _selectCategory(String label) {
+    setState(() => _selectedCategory = label);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,12 +63,15 @@ class MenuScreen extends StatelessWidget {
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: const [
-                _MenuTab(label: 'Hot'),
-                _MenuTab(label: 'Cold'),
-                _MenuTab(label: 'Seasonal'),
-                _MenuTab(label: 'Food'),
-              ],
+              children: _categories
+                  .map(
+                    (label) => _MenuTab(
+                      label: label,
+                      isSelected: _selectedCategory == label,
+                      onTap: () => _selectCategory(label),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
           const SizedBox(height: 10),
@@ -64,12 +99,31 @@ class MenuScreen extends StatelessWidget {
                     ),
                   );
                 }
+                final hasCategory =
+                    drinks.any((drink) => (drink.category ?? '').isNotEmpty);
+                final filtered = hasCategory && _selectedCategory != 'All'
+                    ? drinks
+                        .where(
+                          (drink) =>
+                              (drink.category ?? '').toLowerCase() ==
+                              _selectedCategory.toLowerCase(),
+                        )
+                        .toList()
+                    : drinks;
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No items in this category.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  );
+                }
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                  itemCount: drinks.length,
+                  itemCount: filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 14),
                   itemBuilder: (context, index) {
-                    final drink = drinks[index];
+                    final drink = filtered[index];
                     return _MenuRow(
                       item: _MenuItemView(
                         name: drink.name,
@@ -90,7 +144,7 @@ class MenuScreen extends StatelessWidget {
                                   : drink.description,
                               basePrice: drink.price,
                               onAddToCart: (price) {
-                                onAddToCart(drink.name, price);
+                                widget.onAddToCart(drink.name, price);
                               },
                             ),
                           ),
@@ -109,27 +163,43 @@ class MenuScreen extends StatelessWidget {
 }
 
 class _MenuTab extends StatelessWidget {
-  const _MenuTab({required this.label});
+  const _MenuTab({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: CoffeePalette.card,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
-        ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        margin: const EdgeInsets.only(right: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? CoffeePalette.espresso : CoffeePalette.card,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: isSelected ? Colors.white : CoffeePalette.espresso,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+              ),
+        ),
       ),
-      child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
     );
   }
 }

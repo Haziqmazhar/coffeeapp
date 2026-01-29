@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'models/cart_item.dart';
 import 'screens/account_screen.dart';
@@ -12,6 +13,9 @@ import 'theme/coffee_palette.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Stripe.publishableKey =
+      'pk_test_51Sv1GdArYzLwrB1mxeCYlxfatkmGBX8fIAWuJatpkUQL8fR6B5N4Ox8y1h5h7gbqWUlpZt1zrdXXuttR6Z6Fbsgf00Llxp7NAS';
+  await Stripe.instance.applySettings();
   await Supabase.initialize(
     url: 'https://cowndvyhxurynathkpnj.supabase.co',
     anonKey:
@@ -99,6 +103,14 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int _index = 0;
   final List<CartItem> _cartItems = [];
+  final List<String> _stores = const [
+    'Downtown Cafe',
+    'Harbor Point',
+    'City Square',
+    'Campus Hub',
+  ];
+  String _currentStore = 'Downtown Cafe';
+  String _menuCategory = 'All';
 
   int get _cartCount =>
       _cartItems.fold(0, (sum, item) => sum + item.quantity);
@@ -149,10 +161,35 @@ class _RootShellState extends State<RootShell> {
     });
   }
 
+  Future<void> _openStorePicker() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: CoffeePalette.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => _StorePicker(
+        currentStore: _currentStore,
+        stores: _stores,
+      ),
+    );
+    if (selected != null && selected != _currentStore) {
+      setState(() => _currentStore = selected);
+    }
+  }
+
+  void _openMenuCategory(String category) {
+    setState(() {
+      _menuCategory = category;
+      _index = 1;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
       HomeScreen(
+        currentStore: _currentStore,
         cartCount: _cartCount,
         cartTotal: _cartTotal,
         onQuickAdd: _addToCart,
@@ -170,8 +207,13 @@ class _RootShellState extends State<RootShell> {
             ),
           );
         },
+        onStoreTap: _openStorePicker,
+        onCategoryTap: _openMenuCategory,
       ),
-      MenuScreen(onAddToCart: _addToCart),
+      MenuScreen(
+        onAddToCart: _addToCart,
+        initialCategory: _menuCategory,
+      ),
       const OrdersScreen(),
       const AccountScreen(),
     ];
@@ -190,6 +232,50 @@ class _RootShellState extends State<RootShell> {
           NavigationDestination(icon: Icon(Icons.receipt_long), label: 'Orders'),
           NavigationDestination(icon: Icon(Icons.person), label: 'Account'),
         ],
+      ),
+    );
+  }
+}
+
+class _StorePicker extends StatelessWidget {
+  const _StorePicker({
+    required this.currentStore,
+    required this.stores,
+  });
+
+  final String currentStore;
+  final List<String> stores;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose a store',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            ...stores.map((store) {
+              final isSelected = store == currentStore;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  store,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                trailing: isSelected
+                    ? const Icon(Icons.check_circle, color: CoffeePalette.espresso)
+                    : const Icon(Icons.circle_outlined, color: CoffeePalette.espressoSoft),
+                onTap: () => Navigator.of(context).pop(store),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_stripe/flutter_stripe.dart';
+
 import '../data/orders_service.dart';
+import '../data/payments_service.dart';
 import '../models/cart_item.dart';
 import '../theme/coffee_palette.dart';
 import 'order_status_screen.dart';
@@ -111,6 +114,18 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
           : () async {
               setState(() => _submitting = true);
               try {
+                final payment = PaymentsService();
+                final amount = (widget.total * 100).round();
+                final clientSecret =
+                    await payment.createPaymentIntent(amount: amount);
+                await Stripe.instance.initPaymentSheet(
+                  paymentSheetParameters: SetupPaymentSheetParameters(
+                    paymentIntentClientSecret: clientSecret,
+                    merchantDisplayName: 'CoffeeArq',
+                  ),
+                );
+                await Stripe.instance.presentPaymentSheet();
+
                 final service = OrdersService();
                 final order = await service.createOrder(
                   items: widget.items,

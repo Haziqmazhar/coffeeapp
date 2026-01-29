@@ -8,12 +8,14 @@ class Drink {
     required this.name,
     required this.description,
     required this.price,
+    this.category,
   });
 
   final String id;
   final String name;
   final String description;
   final double price;
+  final String? category;
 
   factory Drink.fromMap(Map<String, dynamic> data) {
     return Drink(
@@ -21,6 +23,7 @@ class Drink {
       name: data['name'] as String,
       description: (data['description'] as String?) ?? '',
       price: (data['price'] as num).toDouble(),
+      category: data['category'] as String?,
     );
   }
 }
