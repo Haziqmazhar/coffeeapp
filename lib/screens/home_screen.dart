@@ -40,30 +40,6 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(
-          right: -40,
-          bottom: 120,
-          child: Container(
-            height: 220,
-            width: 220,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: CoffeePalette.caramelSoft.withOpacity(0.35),
-            ),
-          ),
-        ),
-        Positioned(
-          left: -60,
-          top: 160,
-          child: Container(
-            height: 180,
-            width: 180,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: CoffeePalette.latte.withOpacity(0.6),
-            ),
-          ),
-        ),
         SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
@@ -123,6 +99,7 @@ class HomeScreen extends StatelessWidget {
                                     name: item.name,
                                     subtitle: item.subtitle,
                                     basePrice: item.price,
+                                    imagePath: item.imagePath,
                                     onAddToCart: (price) {
                                       onQuickAdd(item.name, price);
                                     },
@@ -164,6 +141,8 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 18),
+                const _PromoCarousel(),
               ],
             ),
           ),
@@ -312,13 +291,6 @@ class _FavoriteCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: CoffeePalette.card,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 18,
-              offset: Offset(0, 10),
-            ),
-          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -498,6 +470,178 @@ class _CartBar extends StatelessWidget {
     );
   }
 }
+
+class _PromoCarousel extends StatefulWidget {
+  const _PromoCarousel();
+
+  @override
+  State<_PromoCarousel> createState() => _PromoCarouselState();
+}
+
+class _PromoCarouselState extends State<_PromoCarousel> {
+  final PageController _controller = PageController(viewportFraction: 0.9);
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Promotions', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 130,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: _promoItems.length,
+            onPageChanged: (value) => setState(() => _index = value),
+            itemBuilder: (context, index) {
+              final item = _promoItems[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _PromoCard(
+                  title: item.title,
+                  subtitle: item.subtitle,
+                  badge: item.badge,
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            _promoItems.length,
+            (dotIndex) => AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              height: 6,
+              width: dotIndex == _index ? 18 : 6,
+              decoration: BoxDecoration(
+                color: dotIndex == _index
+                    ? CoffeePalette.espresso
+                    : CoffeePalette.espressoSoft.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PromoCard extends StatelessWidget {
+  const _PromoCard({
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            CoffeePalette.espresso.withOpacity(0.92),
+            CoffeePalette.caramel,
+          ],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              badge,
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            title,
+            style: GoogleFonts.fraunces(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PromoItem {
+  const _PromoItem({
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badge;
+}
+
+const _promoItems = [
+  _PromoItem(
+    title: 'Morning Combo',
+    subtitle: 'Any latte + pastry for \$6.90',
+    badge: 'Limited',
+  ),
+  _PromoItem(
+    title: 'Iced Week',
+    subtitle: '2nd iced drink 50% off',
+    badge: 'This Week',
+  ),
+  _PromoItem(
+    title: 'Matcha Fans',
+    subtitle: 'Free extra shot today',
+    badge: 'Today',
+  ),
+];
 
 class FavoriteDrink {
   const FavoriteDrink({

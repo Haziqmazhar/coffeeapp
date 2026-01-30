@@ -88,7 +88,74 @@ class CoffeeArqApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const RootShell(),
+      home: const SplashScreen(),
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    _fade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.85, curve: Curves.easeInOut),
+    );
+    _controller.forward();
+    Future<void>.delayed(const Duration(milliseconds: 2000), () {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 350),
+          pageBuilder: (_, __, ___) => const RootShell(),
+          transitionsBuilder: (_, animation, __, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: CoffeePalette.cream,
+      body: Center(
+        child: FadeTransition(
+          opacity: _fade,
+          child: Text(
+            'CoffeeArq',
+            style: GoogleFonts.baloo2(
+              fontSize: 36,
+              fontWeight: FontWeight.w700,
+              color: CoffeePalette.espresso,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

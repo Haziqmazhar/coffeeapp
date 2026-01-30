@@ -143,6 +143,7 @@ class _MenuScreenState extends State<MenuScreen> {
                                   ? 'Freshly crafted'
                                   : drink.description,
                               basePrice: drink.price,
+                              imagePath: _drinkImageMap[drink.name],
                               onAddToCart: (price) {
                                 widget.onAddToCart(drink.name, price);
                               },
@@ -184,18 +185,15 @@ class _MenuTab extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? CoffeePalette.espresso : CoffeePalette.card,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 12,
-              offset: Offset(0, 6),
-            ),
-          ],
+          border: Border.all(
+            color: CoffeePalette.espresso,
+            width: 1,
+          ),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isSelected ? Colors.white : CoffeePalette.espresso,
+            color: isSelected ? Colors.white : CoffeePalette.espresso,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
               ),
         ),

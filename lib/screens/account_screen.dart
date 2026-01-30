@@ -9,7 +9,9 @@ import '../data/profile_service.dart';
 import '../data/supabase_client.dart';
 import '../theme/coffee_palette.dart';
 import 'auth_screen.dart';
+import 'help_center_screen.dart';
 import 'payment_methods_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -203,15 +205,25 @@ class _AccountScreenState extends State<AccountScreen> {
           const SizedBox(height: 16),
           Text('Support', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 10),
-          const _SettingTile(
+          _SettingTile(
             icon: Icons.help_outline,
             title: 'Help Center',
             subtitle: 'FAQs and support',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HelpCenterScreen()),
+              );
+            },
           ),
-          const _SettingTile(
+          _SettingTile(
             icon: Icons.policy_outlined,
             title: 'Privacy Policy',
             subtitle: 'Read how we handle data',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+              );
+            },
           ),
           const SizedBox(height: 18),
           if (session == null)

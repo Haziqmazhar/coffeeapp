@@ -26,6 +26,11 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  double get _total => widget.items.fold(
+        0,
+        (sum, item) => sum + (item.price * item.quantity),
+      );
+
   void _handleUpdateQuantity(String name, int delta) {
     widget.onUpdateQuantity(name, delta);
     setState(() {});
@@ -130,7 +135,7 @@ class _CartScreenState extends State<CartScreen> {
                     MaterialPageRoute(
                       builder: (_) => CheckoutScreen(
                         items: widget.items,
-                        subtotal: widget.total,
+                        subtotal: _total,
                         onOrderPlaced: widget.onCheckoutComplete,
                         onReorder: widget.onReorder,
                       ),
@@ -145,7 +150,7 @@ class _CartScreenState extends State<CartScreen> {
               borderRadius: BorderRadius.circular(24),
             ),
           ),
-          child: Text('Checkout  \$${widget.total.toStringAsFixed(2)}'),
+          child: Text('Checkout  \$${_total.toStringAsFixed(2)}'),
         ),
       ),
     );

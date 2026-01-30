@@ -9,12 +9,14 @@ class DrinkDetailScreen extends StatefulWidget {
     required this.subtitle,
     required this.basePrice,
     required this.onAddToCart,
+    this.imagePath,
   });
 
   final String name;
   final String subtitle;
   final double basePrice;
   final void Function(double price) onAddToCart;
+  final String? imagePath;
 
   @override
   State<DrinkDetailScreen> createState() => _DrinkDetailScreenState();
@@ -92,8 +94,22 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen> {
                   ),
                 ],
               ),
-              child: const Center(
-                child: Icon(Icons.local_cafe, size: 54, color: CoffeePalette.espresso),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: widget.imagePath == null
+                    ? const Center(
+                        child: Icon(
+                          Icons.local_cafe,
+                          size: 54,
+                          color: CoffeePalette.espresso,
+                        ),
+                      )
+                    : Image.asset(
+                        widget.imagePath!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: 180,
+                      ),
               ),
             ),
             const SizedBox(height: 16),

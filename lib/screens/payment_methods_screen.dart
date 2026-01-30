@@ -1,9 +1,46 @@
 import 'package:flutter/material.dart';
 
+import '../data/payments_service.dart';
+import '../data/profile_service.dart';
 import '../theme/coffee_palette.dart';
+import 'add_card_screen.dart';
 
-class PaymentMethodsScreen extends StatelessWidget {
+class PaymentMethodsScreen extends StatefulWidget {
   const PaymentMethodsScreen({super.key});
+
+  @override
+  State<PaymentMethodsScreen> createState() => _PaymentMethodsScreenState();
+}
+
+class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
+  final PaymentsService _paymentsService = PaymentsService();
+  Future<List<SavedPaymentMethod>>? _methodsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMethods();
+  }
+
+  Future<void> _loadMethods() async {
+    final profile = await ProfileService().fetchProfile();
+    if (profile == null) {
+      setState(() => _methodsFuture = Future.value([]));
+      return;
+    }
+    setState(
+      () => _methodsFuture = _paymentsService.fetchPaymentMethods(profile.id),
+    );
+  }
+
+  Future<void> _openAddCard() async {
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const AddCardScreen()),
+    );
+    if (added == true) {
+      await _loadMethods();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,36 +52,46 @@ class PaymentMethodsScreen extends StatelessWidget {
         title:
             Text('Payment Methods', style: Theme.of(context).textTheme.titleLarge),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-        children: [
-          _CardTile(
-            brand: 'Visa',
-            last4: '4242',
-            expiry: '09/27',
-            isDefault: true,
-          ),
-          const SizedBox(height: 12),
-          _CardTile(
-            brand: 'Mastercard',
-            last4: '1132',
-            expiry: '01/26',
-            isDefault: false,
-          ),
-          const SizedBox(height: 18),
-          OutlinedButton.icon(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: CoffeePalette.espresso),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+      body: FutureBuilder<List<SavedPaymentMethod>>(
+        future: _methodsFuture,
+        builder: (context, snapshot) {
+          final items = snapshot.data ?? [];
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            children: [
+              if (items.isEmpty)
+                Text(
+                  'No saved cards yet.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                )
+              else
+                ...items.map(
+                  (method) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _CardTile(
+                      brand: method.brand,
+                      last4: method.last4,
+                      expiry: method.expiryLabel,
+                      isDefault: method.isDefault,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                onPressed: _openAddCard,
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: CoffeePalette.espresso),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                icon: const Icon(Icons.add, color: CoffeePalette.espresso),
+                label: const Text('Add payment method'),
               ),
-            ),
-            icon: const Icon(Icons.add, color: CoffeePalette.espresso),
-            label: const Text('Add payment method'),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

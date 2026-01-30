@@ -50,7 +50,7 @@ class OrderDetailScreen extends StatelessWidget {
                       name: item.name,
                       quantity: item.quantity,
                       total: item.unitPrice * item.quantity,
-                      imagePath: _drinkImageMap[item.name],
+                      imagePath: _resolveImagePath(item.name),
                     ),
                   ),
                 ),
@@ -226,8 +226,18 @@ String _titleCase(String value) {
   return value[0].toUpperCase() + value.substring(1);
 }
 
+String? _resolveImagePath(String name) {
+  final normalized = name.toLowerCase();
+  for (final entry in _drinkImageMap.entries) {
+    if (normalized.contains(entry.key)) {
+      return entry.value;
+    }
+  }
+  return null;
+}
+
 const _drinkImageMap = {
-  'Classic Latte': 'assets/images/latte.jpg',
-  'Strawberry Latte': 'assets/images/strawberrylatte.jpg',
-  'Matcha Latte': 'assets/images/matchalatte.jpg',
+  'classic latte': 'assets/images/latte.jpg',
+  'strawberry latte': 'assets/images/strawberrylatte.jpg',
+  'matcha latte': 'assets/images/matchalatte.jpg',
 };
