@@ -16,8 +16,8 @@ class CartScreen extends StatefulWidget {
 
   final List<CartItem> items;
   final double total;
-  final void Function(String name, int delta) onUpdateQuantity;
-  final void Function(String name) onRemoveItem;
+  final void Function(String key, int delta) onUpdateQuantity;
+  final void Function(String key) onRemoveItem;
   final VoidCallback onCheckoutComplete;
   final void Function(List<CartItem> items) onReorder;
 
@@ -31,13 +31,13 @@ class _CartScreenState extends State<CartScreen> {
         (sum, item) => sum + (item.price * item.quantity),
       );
 
-  void _handleUpdateQuantity(String name, int delta) {
-    widget.onUpdateQuantity(name, delta);
+  void _handleUpdateQuantity(String key, int delta) {
+    widget.onUpdateQuantity(key, delta);
     setState(() {});
   }
 
-  void _handleRemoveItem(String name) {
-    widget.onRemoveItem(name);
+  void _handleRemoveItem(String key) {
+    widget.onRemoveItem(key);
     setState(() {});
   }
 
@@ -63,6 +63,7 @@ class _CartScreenState extends State<CartScreen> {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final item = widget.items[index];
+                final imagePath = item.imagePath ?? _resolveImagePath(item.name);
                 return Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -78,12 +79,36 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.local_cafe, color: CoffeePalette.espresso),
+                      Container(
+                        height: 52,
+                        width: 52,
+                        decoration: BoxDecoration(
+                          color: CoffeePalette.caramelSoft,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: imagePath == null
+                            ? const Icon(Icons.local_cafe,
+                                color: CoffeePalette.espresso)
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.asset(
+                                  imagePath,
+                                  fit: BoxFit.cover,
+                                  width: 52,
+                                  height: 52,
+                                ),
+                              ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          item.name,
-                          style: Theme.of(context).textTheme.titleMedium,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
                         ),
                       ),
                       Row(
@@ -92,7 +117,7 @@ class _CartScreenState extends State<CartScreen> {
                             icon: const Icon(Icons.remove_circle_outline),
                             color: CoffeePalette.espresso,
                             onPressed: () =>
-                                _handleUpdateQuantity(item.name, -1),
+                                _handleUpdateQuantity(item.key, -1),
                           ),
                           Text(
                             '${item.quantity}',
@@ -102,7 +127,7 @@ class _CartScreenState extends State<CartScreen> {
                             icon: const Icon(Icons.add_circle_outline),
                             color: CoffeePalette.espresso,
                             onPressed: () =>
-                                _handleUpdateQuantity(item.name, 1),
+                                _handleUpdateQuantity(item.key, 1),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -116,7 +141,7 @@ class _CartScreenState extends State<CartScreen> {
                           IconButton(
                             icon: const Icon(Icons.close),
                             color: CoffeePalette.espressoSoft,
-                            onPressed: () => _handleRemoveItem(item.name),
+                            onPressed: () => _handleRemoveItem(item.key),
                           ),
                         ],
                       ),
@@ -156,3 +181,19 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 }
+
+String? _resolveImagePath(String name) {
+  final normalized = name.toLowerCase();
+  for (final entry in _cartImageMap.entries) {
+    if (normalized.contains(entry.key)) {
+      return entry.value;
+    }
+  }
+  return null;
+}
+
+const _cartImageMap = {
+  'classic latte': 'assets/images/latte.jpg',
+  'strawberry latte': 'assets/images/strawberrylatte.jpg',
+  'matcha latte': 'assets/images/matchalatte.jpg',
+};

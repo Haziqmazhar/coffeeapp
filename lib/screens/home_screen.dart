@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/drinks_service.dart';
 import '../data/profile_service.dart';
 import '../data/supabase_client.dart';
+import '../models/cart_item.dart';
 import 'drink_detail_screen.dart';
 import '../theme/coffee_palette.dart';
 
@@ -22,7 +23,7 @@ class HomeScreen extends StatelessWidget {
   final String currentStore;
   final int cartCount;
   final double cartTotal;
-  final void Function(String name, double price) onQuickAdd;
+  final void Function(CartItem item) onQuickAdd;
   final VoidCallback onCartTap;
   final VoidCallback onStoreTap;
   final void Function(String category) onCategoryTap;
@@ -42,23 +43,38 @@ class HomeScreen extends StatelessWidget {
         ),
         SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+            padding: const EdgeInsets.fromLTRB(0, 14, 0, 120),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _TopBar(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _TopBar(),
+                ),
                 const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _StorePill(
-                    label: 'Current Store: $currentStore',
-                    onTap: onStoreTap,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _StorePill(
+                      label: 'Current Store: $currentStore',
+                      onTap: onStoreTap,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
-                const _GreetingText(),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: _GreetingText(),
+                ),
                 const SizedBox(height: 20),
-                Text('The Usual', style: Theme.of(context).textTheme.titleMedium),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    'The Usual',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 240,
@@ -80,6 +96,7 @@ class HomeScreen extends StatelessWidget {
                                   imagePath:
                                       _drinkImageMap[drink.name] ??
                                           _homeFavorites.first.imagePath,
+                                  isAvailable: drink.isAvailable,
                                 ),
                               )
                               .toList();
@@ -91,8 +108,18 @@ class HomeScreen extends StatelessWidget {
                           final item = items[index];
                           return _FavoriteCard(
                             item: item,
-                            onQuickAdd: () => onQuickAdd(item.name, item.price),
-                            onTap: () {
+                            onQuickAdd: item.isAvailable
+                                ? () => onQuickAdd(
+                                      CartItem(
+                                        name: item.name,
+                                        price: item.price,
+                                        details: 'M • Oat • 50% • No add-ons',
+                                        imagePath: item.imagePath,
+                                      ),
+                                    )
+                                : null,
+                            onTap: item.isAvailable
+                                ? () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => DrinkDetailScreen(
@@ -100,13 +127,14 @@ class HomeScreen extends StatelessWidget {
                                     subtitle: item.subtitle,
                                     basePrice: item.price,
                                     imagePath: item.imagePath,
-                                    onAddToCart: (price) {
-                                      onQuickAdd(item.name, price);
+                                    onAddToCart: (cartItem) {
+                                      onQuickAdd(cartItem);
                                     },
                                   ),
                                 ),
                               );
-                            },
+                            }
+                                : null,
                           );
                         },
                       );
@@ -114,32 +142,41 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text('Seapress', style: Theme.of(context).textTheme.titleMedium),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    'Seapress',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _CategoryChip(
-                      icon: Icons.local_cafe_outlined,
-                      label: 'Hot Coffee',
-                      onTap: () => onCategoryTap('Hot'),
-                    ),
-                    _CategoryChip(
-                      icon: Icons.icecream_outlined,
-                      label: 'Cold Drinks',
-                      onTap: () => onCategoryTap('Cold'),
-                    ),
-                    _CategoryChip(
-                      icon: Icons.spa_outlined,
-                      label: 'Seasonal',
-                      onTap: () => onCategoryTap('Seasonal'),
-                    ),
-                    _CategoryChip(
-                      icon: Icons.bakery_dining_outlined,
-                      label: 'Food',
-                      onTap: () => onCategoryTap('Food'),
-                    ),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _CategoryChip(
+                        icon: Icons.local_cafe_outlined,
+                        label: 'Hot Coffee',
+                        onTap: () => onCategoryTap('Hot'),
+                      ),
+                      _CategoryChip(
+                        icon: Icons.icecream_outlined,
+                        label: 'Cold Drinks',
+                        onTap: () => onCategoryTap('Cold'),
+                      ),
+                      _CategoryChip(
+                        icon: Icons.spa_outlined,
+                        label: 'Seasonal',
+                        onTap: () => onCategoryTap('Seasonal'),
+                      ),
+                      _CategoryChip(
+                        icon: Icons.bakery_dining_outlined,
+                        label: 'Food',
+                        onTap: () => onCategoryTap('Food'),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
                 const _PromoCarousel(),
@@ -277,8 +314,8 @@ class _FavoriteCard extends StatelessWidget {
   });
 
   final FavoriteDrink item;
-  final VoidCallback onQuickAdd;
-  final VoidCallback onTap;
+  final VoidCallback? onQuickAdd;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -331,12 +368,15 @@ class _FavoriteCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            Text(
-              item.subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            if (item.isAvailable)
+              Text(
+                item.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              )
+            else
+              const _UnavailablePill(),
             const SizedBox(height: 12),
             SizedBox(
               height: 32,
@@ -356,6 +396,28 @@ class _FavoriteCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _UnavailablePill extends StatelessWidget {
+  const _UnavailablePill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: CoffeePalette.latte,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        'Unavailable',
+        style: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: CoffeePalette.espressoSoft),
       ),
     );
   }
@@ -479,7 +541,7 @@ class _PromoCarousel extends StatefulWidget {
 }
 
 class _PromoCarouselState extends State<_PromoCarousel> {
-  final PageController _controller = PageController(viewportFraction: 0.9);
+  final PageController _controller = PageController(viewportFraction: 1);
   int _index = 0;
 
   @override
@@ -493,7 +555,13 @@ class _PromoCarouselState extends State<_PromoCarousel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Promotions', style: Theme.of(context).textTheme.titleMedium),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Promotions',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
         const SizedBox(height: 10),
         SizedBox(
           height: 130,
@@ -504,7 +572,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
             itemBuilder: (context, index) {
               final item = _promoItems[index];
               return Padding(
-                padding: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: _PromoCard(
                   title: item.title,
                   subtitle: item.subtitle,
@@ -515,20 +583,23 @@ class _PromoCarouselState extends State<_PromoCarousel> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            _promoItems.length,
-            (dotIndex) => AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              height: 6,
-              width: dotIndex == _index ? 18 : 6,
-              decoration: BoxDecoration(
-                color: dotIndex == _index
-                    ? CoffeePalette.espresso
-                    : CoffeePalette.espressoSoft.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(99),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              _promoItems.length,
+              (dotIndex) => AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                height: 6,
+                width: dotIndex == _index ? 18 : 6,
+                decoration: BoxDecoration(
+                  color: dotIndex == _index
+                      ? CoffeePalette.espresso
+                      : CoffeePalette.espressoSoft.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(99),
+                ),
               ),
             ),
           ),
@@ -649,12 +720,14 @@ class FavoriteDrink {
     required this.subtitle,
     required this.price,
     required this.imagePath,
+    required this.isAvailable,
   });
 
   final String name;
   final String subtitle;
   final double price;
   final String imagePath;
+  final bool isAvailable;
 }
 
 const _homeFavorites = [
@@ -663,18 +736,21 @@ const _homeFavorites = [
     subtitle: 'Smooth, creamy',
     price: 5.25,
     imagePath: 'assets/images/latte.jpg',
+    isAvailable: true,
   ),
   FavoriteDrink(
     name: 'Strawberry Latte',
     subtitle: 'Berry cream blend',
     price: 4.50,
     imagePath: 'assets/images/strawberrylatte.jpg',
+    isAvailable: true,
   ),
   FavoriteDrink(
     name: 'Matcha Latte',
     subtitle: 'Green tea delight',
     price: 3.75,
     imagePath: 'assets/images/matchalatte.jpg',
+    isAvailable: true,
   ),
 ];
 

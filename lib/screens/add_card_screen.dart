@@ -40,7 +40,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
         throw StateError('Card details not available');
       }
 
-      await _paymentsService.addPaymentMethod(
+      final added = await _paymentsService.addPaymentMethod(
         userId: profile.id,
         brand: card.brand ?? 'Card',
         last4: card.last4 ?? '----',
@@ -51,6 +51,12 @@ class _AddCardScreenState extends State<AddCardScreen> {
       );
 
       if (!mounted) return;
+      if (!added) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Card already added.')),
+        );
+        return;
+      }
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;

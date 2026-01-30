@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/payments_service.dart';
 import '../data/profile_service.dart';
+import '../data/supabase_client.dart';
 import '../theme/coffee_palette.dart';
 import 'add_card_screen.dart';
 
@@ -22,15 +23,18 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     _loadMethods();
   }
 
-  Future<void> _loadMethods() async {
+  void _loadMethods() {
+    setState(() {
+      _methodsFuture = _fetchMethods();
+    });
+  }
+
+  Future<List<SavedPaymentMethod>> _fetchMethods() async {
     final profile = await ProfileService().fetchProfile();
     if (profile == null) {
-      setState(() => _methodsFuture = Future.value([]));
-      return;
+      return [];
     }
-    setState(
-      () => _methodsFuture = _paymentsService.fetchPaymentMethods(profile.id),
-    );
+    return _paymentsService.fetchPaymentMethods(profile.id);
   }
 
   Future<void> _openAddCard() async {
@@ -38,8 +42,18 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       MaterialPageRoute(builder: (_) => const AddCardScreen()),
     );
     if (added == true) {
-      await _loadMethods();
+      _loadMethods();
     }
+  }
+
+  Future<void> _setDefault(SavedPaymentMethod method) async {
+    final profile = await ProfileService().fetchProfile();
+    if (profile == null) return;
+    await _paymentsService.setDefaultPaymentMethod(
+      userId: profile.id,
+      paymentMethodId: method.id,
+    );
+    _loadMethods();
   }
 
   @override
@@ -56,10 +70,16 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         future: _methodsFuture,
         builder: (context, snapshot) {
           final items = snapshot.data ?? [];
+          final isSignedIn = supabase.auth.currentSession != null;
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
             children: [
-              if (items.isEmpty)
+              if (!isSignedIn)
+                Text(
+                  'Sign in to view saved cards.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                )
+              else if (items.isEmpty)
                 Text(
                   'No saved cards yet.',
                   style: Theme.of(context).textTheme.bodyMedium,
@@ -73,6 +93,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                       last4: method.last4,
                       expiry: method.expiryLabel,
                       isDefault: method.isDefault,
+                      onSetDefault: () => _setDefault(method),
                     ),
                   ),
                 ),
@@ -103,12 +124,14 @@ class _CardTile extends StatelessWidget {
     required this.last4,
     required this.expiry,
     required this.isDefault,
+    required this.onSetDefault,
   });
 
   final String brand;
   final String last4;
   final String expiry;
   final bool isDefault;
+  final VoidCallback onSetDefault;
 
   @override
   Widget build(BuildContext context) {
@@ -151,21 +174,10 @@ class _CardTile extends StatelessWidget {
               ],
             ),
           ),
-          if (isDefault)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: CoffeePalette.caramelSoft,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Default',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: CoffeePalette.espresso,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
+          TextButton(
+            onPressed: isDefault ? null : onSetDefault,
+            child: Text(isDefault ? 'Default' : 'Make default'),
+          ),
         ],
       ),
     );

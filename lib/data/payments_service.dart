@@ -80,7 +80,7 @@ class PaymentsService {
         .toList();
   }
 
-  Future<void> addPaymentMethod({
+  Future<bool> addPaymentMethod({
     required String userId,
     required String brand,
     required String last4,
@@ -89,6 +89,19 @@ class PaymentsService {
     required String stripePaymentMethodId,
     bool isDefault = false,
   }) async {
+    final existing = await supabase
+        .from('payment_methods')
+        .select()
+        .eq('user_id', userId)
+        .eq('last4', last4)
+        .eq('exp_month', expMonth)
+        .eq('exp_year', expYear)
+        .maybeSingle();
+
+    if (existing != null) {
+      return false;
+    }
+
     await supabase.from('payment_methods').insert({
       'user_id': userId,
       'brand': brand,
@@ -98,5 +111,20 @@ class PaymentsService {
       'stripe_payment_method_id': stripePaymentMethodId,
       'is_default': isDefault,
     });
+    return true;
+  }
+
+  Future<void> setDefaultPaymentMethod({
+    required String userId,
+    required String paymentMethodId,
+  }) async {
+    await supabase
+        .from('payment_methods')
+        .update({'is_default': false})
+        .eq('user_id', userId);
+    await supabase
+        .from('payment_methods')
+        .update({'is_default': true})
+        .eq('id', paymentMethodId);
   }
 }

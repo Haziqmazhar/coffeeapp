@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/drinks_service.dart';
+import '../models/cart_item.dart';
 import '../theme/coffee_palette.dart';
 import 'drink_detail_screen.dart';
 
@@ -11,7 +12,7 @@ class MenuScreen extends StatefulWidget {
     this.initialCategory = 'All',
   });
 
-  final void Function(String name, double price) onAddToCart;
+  final void Function(CartItem item) onAddToCart;
   final String initialCategory;
 
   @override
@@ -133,6 +134,7 @@ class _MenuScreenState extends State<MenuScreen> {
                         priceValue: drink.price,
                         icon: Icons.local_cafe,
                         imagePath: _drinkImageMap[drink.name],
+                        isAvailable: drink.isAvailable,
                       ),
                       onTap: () {
                         Navigator.of(context).push(
@@ -144,8 +146,8 @@ class _MenuScreenState extends State<MenuScreen> {
                                   : drink.description,
                               basePrice: drink.price,
                               imagePath: _drinkImageMap[drink.name],
-                              onAddToCart: (price) {
-                                widget.onAddToCart(drink.name, price);
+                              onAddToCart: (cartItem) {
+                                widget.onAddToCart(cartItem);
                               },
                             ),
                           ),
@@ -211,7 +213,7 @@ class _MenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: item.isAvailable ? onTap : null,
       borderRadius: BorderRadius.circular(18),
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -252,12 +254,19 @@ class _MenuRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.name, style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    item.name,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     item.subtitle,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                  if (!item.isAvailable) ...[
+                    const SizedBox(height: 6),
+                    _UnavailablePill(),
+                  ],
                 ],
               ),
             ),
@@ -282,6 +291,7 @@ class _MenuItemView {
     required this.priceValue,
     required this.icon,
     required this.imagePath,
+    required this.isAvailable,
   });
 
   final String name;
@@ -289,8 +299,29 @@ class _MenuItemView {
   final double priceValue;
   final IconData icon;
   final String? imagePath;
+  final bool isAvailable;
 
   String get priceLabel => '\$${priceValue.toStringAsFixed(2)}';
+}
+
+class _UnavailablePill extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: CoffeePalette.latte,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        'Unavailable',
+        style: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: CoffeePalette.espressoSoft),
+      ),
+    );
+  }
 }
 
 const _drinkImageMap = {

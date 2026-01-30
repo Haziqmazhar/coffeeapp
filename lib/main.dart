@@ -185,20 +185,20 @@ class _RootShellState extends State<RootShell> {
   double get _cartTotal =>
       _cartItems.fold(0, (sum, item) => sum + (item.price * item.quantity));
 
-  void _addToCart(String name, double price) {
+  void _addToCart(CartItem item) {
     setState(() {
-      final index = _cartItems.indexWhere((item) => item.name == name);
+      final index = _cartItems.indexWhere((existing) => existing.key == item.key);
       if (index >= 0) {
         _cartItems[index].quantity += 1;
       } else {
-        _cartItems.add(CartItem(name: name, price: price));
+        _cartItems.add(item);
       }
     });
   }
 
-  void _updateQuantity(String name, int delta) {
+  void _updateQuantity(String key, int delta) {
     setState(() {
-      final index = _cartItems.indexWhere((item) => item.name == name);
+      final index = _cartItems.indexWhere((item) => item.key == key);
       if (index == -1) {
         return;
       }
@@ -210,9 +210,9 @@ class _RootShellState extends State<RootShell> {
     });
   }
 
-  void _removeItem(String name) {
+  void _removeItem(String key) {
     setState(() {
-      _cartItems.removeWhere((item) => item.name == name);
+      _cartItems.removeWhere((item) => item.key == key);
     });
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/cart_item.dart';
 import '../theme/coffee_palette.dart';
 
 class DrinkDetailScreen extends StatefulWidget {
@@ -15,7 +16,7 @@ class DrinkDetailScreen extends StatefulWidget {
   final String name;
   final String subtitle;
   final double basePrice;
-  final void Function(double price) onAddToCart;
+  final void Function(CartItem item) onAddToCart;
   final String? imagePath;
 
   @override
@@ -26,6 +27,7 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen> {
   int _sizeIndex = 1;
   int _milkIndex = 0;
   int _sweetIndex = 2;
+  final TextEditingController _notesController = TextEditingController();
   final Map<String, double> _addons = {
     'Extra shot': 0.75,
     'Vanilla': 0.50,
@@ -61,6 +63,22 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen> {
         ? 'No add-ons'
         : _selectedAddons.join(', ');
     return 'Size: $_sizeLabel • Milk: $_milkLabel • Sweet: $_sweetLabel • $addons';
+  }
+
+  String get _cartDetails {
+    final addons = _selectedAddons.isEmpty
+        ? 'No add-ons'
+        : _selectedAddons.join(', ');
+    final note = _notesController.text.trim();
+    return note.isEmpty
+        ? '$_sizeLabel • $_milkLabel • $_sweetLabel • $addons'
+        : '$_sizeLabel • $_milkLabel • $_sweetLabel • $addons • $note';
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 
   @override
@@ -188,6 +206,7 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen> {
             _SectionTitle(label: 'Notes (optional)'),
             const SizedBox(height: 8),
             TextField(
+              controller: _notesController,
               maxLines: 3,
               decoration: InputDecoration(
                 hintText: 'e.g., extra hot, no foam',
@@ -206,7 +225,14 @@ class _DrinkDetailScreenState extends State<DrinkDetailScreen> {
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: ElevatedButton(
           onPressed: () {
-            widget.onAddToCart(_price);
+            widget.onAddToCart(
+              CartItem(
+                name: widget.name,
+                price: _price,
+                details: _cartDetails,
+                imagePath: widget.imagePath,
+              ),
+            );
             Navigator.pop(context);
           },
           style: ElevatedButton.styleFrom(

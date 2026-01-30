@@ -4,8 +4,10 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../data/orders_service.dart';
 import '../data/payments_service.dart';
+import '../data/profile_service.dart';
 import '../models/cart_item.dart';
 import '../theme/coffee_palette.dart';
+import 'payment_methods_screen.dart';
 import 'order_status_screen.dart';
 
 class CheckoutScreen extends StatelessWidget {
@@ -64,13 +66,31 @@ class CheckoutScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _SectionTitle(label: 'Payment'),
           const SizedBox(height: 8),
-          _InfoCard(
-            title: 'Visa •••• 4242',
-            subtitle: 'Tap to change',
-            actionLabel: 'Change',
-            onAction: () {},
+          FutureBuilder<_PaymentSummary?>(
+            future: _fetchPaymentSummary(),
+            builder: (context, snapshot) {
+              final payment = snapshot.data;
+              final title = payment == null
+                  ? 'No payment method'
+                  : '${payment.brand} ???? ${payment.last4}';
+              final subtitle = payment == null
+                  ? 'Add a card to continue'
+                  : 'Tap to change';
+              return _InfoCard(
+                title: title,
+                subtitle: subtitle,
+                actionLabel: 'Change',
+                onAction: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PaymentMethodsScreen(),
+                    ),
+                  );
+                },
+              );
+            },
           ),
-          const SizedBox(height: 24),
+const SizedBox(height: 24),
         ],
       ),
       bottomNavigationBar: Padding(
@@ -112,6 +132,27 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
       onPressed: widget.items.isEmpty || _submitting
           ? null
           : () async {
+              final profile = await ProfileService().fetchProfile();
+              if (profile == null) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please sign in first.')),
+                );
+                return;
+              }
+
+              final methods =
+                  await PaymentsService().fetchPaymentMethods(profile.id);
+              if (methods.isEmpty) {
+                if (!mounted) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PaymentMethodsScreen(),
+                  ),
+                );
+                return;
+              }
+
               setState(() => _submitting = true);
               try {
                 final payment = PaymentsService();
@@ -236,6 +277,27 @@ class _InfoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+
+Future<_PaymentSummary?> _fetchPaymentSummary() async {
+  final profile = await ProfileService().fetchProfile();
+  if (profile == null) return null;
+  final methods = await PaymentsService().fetchPaymentMethods(profile.id);
+  if (methods.isEmpty) return null;
+  final defaultMethod =
+      methods.firstWhere((m) => m.isDefault, orElse: () => methods.first);
+  return _PaymentSummary(
+    brand: defaultMethod.brand,
+    last4: defaultMethod.last4,
+  );
+}
+
+class _PaymentSummary {
+  const _PaymentSummary({required this.brand, required this.last4});
+
+  final String brand;
+  final String last4;
 }
 
 class _LineItem extends StatelessWidget {

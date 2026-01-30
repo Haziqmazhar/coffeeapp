@@ -9,6 +9,7 @@ class Drink {
     required this.description,
     required this.price,
     this.category,
+    this.isAvailable = true,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class Drink {
   final String description;
   final double price;
   final String? category;
+  final bool isAvailable;
 
   factory Drink.fromMap(Map<String, dynamic> data) {
     return Drink(
@@ -24,6 +26,7 @@ class Drink {
       description: (data['description'] as String?) ?? '',
       price: (data['price'] as num).toDouble(),
       category: data['category'] as String?,
+      isAvailable: (data['is_available'] as bool?) ?? true,
     );
   }
 }
