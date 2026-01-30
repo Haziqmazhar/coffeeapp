@@ -27,6 +27,7 @@ class _MenuScreenState extends State<MenuScreen> {
     'Seasonal',
     'Food',
   ];
+  static const String _currentStore = 'Downtown Cafe';
 
   late String _selectedCategory;
 
@@ -50,11 +51,36 @@ class _MenuScreenState extends State<MenuScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Menu', style: Theme.of(context).textTheme.titleLarge),
-                const Icon(Icons.search, color: CoffeePalette.espresso),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Menu', style: Theme.of(context).textTheme.titleLarge),
+                    const Icon(Icons.search, color: CoffeePalette.espresso),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: CoffeePalette.espresso,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Text(
+                        'Current Store: Downtown Cafe',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      SizedBox(width: 6),
+                      Icon(Icons.keyboard_arrow_down, color: Colors.white),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -119,6 +145,13 @@ class _MenuScreenState extends State<MenuScreen> {
                     ),
                   );
                 }
+                if (_selectedCategory == 'All' && hasCategory) {
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                    children: _buildCategorySections(filtered),
+                  );
+                }
+
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
                   itemCount: filtered.length,
@@ -131,6 +164,9 @@ class _MenuScreenState extends State<MenuScreen> {
                         subtitle: drink.description.isEmpty
                             ? 'Freshly crafted'
                             : drink.description,
+                        availabilityLabel: drink.isAvailable
+                            ? 'Available at $_currentStore'
+                            : 'Unavailable at $_currentStore',
                         priceValue: drink.price,
                         icon: Icons.local_cafe,
                         imagePath: _drinkImageMap[drink.name],
@@ -162,6 +198,69 @@ class _MenuScreenState extends State<MenuScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> _buildCategorySections(List<Drink> drinks) {
+    final sections = <Widget>[];
+    final byCategory = <String, List<Drink>>{};
+    for (final drink in drinks) {
+      final category = (drink.category ?? 'Other').trim();
+      final key = category.isEmpty ? 'Other' : category;
+      byCategory.putIfAbsent(key, () => []).add(drink);
+    }
+
+    final ordered = [
+      ..._categories.where((cat) => cat != 'All'),
+      ...byCategory.keys.where((cat) => !_categories.contains(cat)),
+    ];
+
+    for (final category in ordered) {
+      final items = byCategory[category] ?? [];
+      if (items.isEmpty) continue;
+      sections.addAll([
+        Text(category, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 10),
+        ...items.map(
+          (drink) => Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: _MenuRow(
+              item: _MenuItemView(
+                name: drink.name,
+                subtitle: drink.description.isEmpty
+                    ? 'Freshly crafted'
+                    : drink.description,
+                availabilityLabel: drink.isAvailable
+                    ? 'Available at $_currentStore'
+                    : 'Unavailable at $_currentStore',
+                priceValue: drink.price,
+                icon: Icons.local_cafe,
+                imagePath: _drinkImageMap[drink.name],
+                isAvailable: drink.isAvailable,
+              ),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => DrinkDetailScreen(
+                      name: drink.name,
+                      subtitle: drink.description.isEmpty
+                          ? 'Freshly crafted'
+                          : drink.description,
+                      basePrice: drink.price,
+                      imagePath: _drinkImageMap[drink.name],
+                      onAddToCart: (cartItem) {
+                        widget.onAddToCart(cartItem);
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+      ]);
+    }
+    return sections;
   }
 }
 
@@ -263,6 +362,15 @@ class _MenuRow extends StatelessWidget {
                     item.subtitle,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.availabilityLabel,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: item.isAvailable
+                              ? CoffeePalette.espressoSoft
+                              : CoffeePalette.espresso,
+                        ),
+                  ),
                   if (!item.isAvailable) ...[
                     const SizedBox(height: 6),
                     _UnavailablePill(),
@@ -288,6 +396,7 @@ class _MenuItemView {
   const _MenuItemView({
     required this.name,
     required this.subtitle,
+    required this.availabilityLabel,
     required this.priceValue,
     required this.icon,
     required this.imagePath,
@@ -296,6 +405,7 @@ class _MenuItemView {
 
   final String name;
   final String subtitle;
+  final String availabilityLabel;
   final double priceValue;
   final IconData icon;
   final String? imagePath;

@@ -25,6 +25,7 @@ class _AccountScreenState extends State<AccountScreen> {
   Profile? _profile;
   bool _orderUpdates = true;
   bool _pickupReminders = false;
+  bool _notificationsAllowed = true;
   StreamSubscription<AuthState>? _authSub;
 
   @override
@@ -32,6 +33,7 @@ class _AccountScreenState extends State<AccountScreen> {
     super.initState();
     _loadProfile();
     _loadPrefs();
+    _loadNotificationStatus();
     _authSub = supabase.auth.onAuthStateChange.listen((_) {
       _loadProfile();
     });
@@ -57,11 +59,46 @@ class _AccountScreenState extends State<AccountScreen> {
     await prefs.setBool(key, value);
   }
 
+  Future<void> _loadNotificationStatus() async {
+    final status = await Permission.notification.status;
+    if (!mounted) return;
+    setState(() => _notificationsAllowed = status.isGranted);
+  }
+
   Future<bool> _ensureNotificationsAllowed() async {
     final status = await Permission.notification.status;
     if (status.isGranted) return true;
     final result = await Permission.notification.request();
-    return result.isGranted;
+    if (result.isGranted) {
+      if (mounted) setState(() => _notificationsAllowed = true);
+      return true;
+    }
+    if (result.isPermanentlyDenied && mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Enable notifications'),
+          content: const Text(
+            'Notifications are disabled in system settings. Turn them on to get order updates.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Not now'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                openAppSettings();
+              },
+              child: const Text('Open settings'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (mounted) setState(() => _notificationsAllowed = false);
+    return false;
   }
 
   Future<void> _loadProfile() async {
@@ -142,6 +179,44 @@ class _AccountScreenState extends State<AccountScreen> {
                   },
           ),
           const SizedBox(height: 20),
+          Text('Account Settings',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 10),
+          _SettingTile(
+            icon: Icons.edit_outlined,
+            title: 'Edit Profile',
+            subtitle: _profile == null
+                ? 'Sign in to edit profile'
+                : 'Update name and email',
+            onTap: _profile == null
+                ? null
+                : () async {
+                    final updated = await showModalBottomSheet<_ProfileData>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: CoffeePalette.cream,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      builder: (_) => _EditProfileSheet(
+                        initialName: _profile!.name,
+                        initialEmail: _profile!.email,
+                      ),
+                    );
+                    if (updated != null) {
+                      final saved = await _profileService.upsertProfile(
+                        name: updated.name,
+                        email: updated.email,
+                        orderUpdates: _orderUpdates,
+                        pickupReminders: _pickupReminders,
+                      );
+                      if (!mounted) return;
+                      setState(() => _profile = saved);
+                    }
+                  },
+          ),
+          const SizedBox(height: 16),
           Text('Payment', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 10),
           _SettingTile(
@@ -160,6 +235,32 @@ class _AccountScreenState extends State<AccountScreen> {
           Text('Notifications',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 10),
+          if (!_notificationsAllowed)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: CoffeePalette.latte,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications_off_outlined,
+                      color: CoffeePalette.espresso),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Notifications are off in system settings.',
+                      style: TextStyle(color: CoffeePalette.espresso),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: openAppSettings,
+                    child: const Text('Open'),
+                  ),
+                ],
+              ),
+            ),
           _SwitchTile(
             icon: Icons.notifications_active_outlined,
             title: 'Order updates',
@@ -170,6 +271,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 if (!allowed) return;
               }
               setState(() => _orderUpdates = value);
+              _loadNotificationStatus();
               _setPref('pref_order_updates', value);
               if (_profile != null) {
                 await _profileService.upsertProfile(
@@ -191,6 +293,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 if (!allowed) return;
               }
               setState(() => _pickupReminders = value);
+              _loadNotificationStatus();
               _setPref('pref_pickup_reminders', value);
               if (_profile != null) {
                 await _profileService.upsertProfile(

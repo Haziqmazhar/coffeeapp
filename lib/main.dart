@@ -281,7 +281,7 @@ class _RootShellState extends State<RootShell> {
         onAddToCart: _addToCart,
         initialCategory: _menuCategory,
       ),
-      const OrdersScreen(),
+      OrdersScreen(onReorder: _setCartItems),
       const AccountScreen(),
     ];
     return Scaffold(

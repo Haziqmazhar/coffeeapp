@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../data/orders_service.dart';
+import '../models/cart_item.dart';
 import '../theme/coffee_palette.dart';
 
 class OrderDetailScreen extends StatelessWidget {
-  const OrderDetailScreen({super.key, required this.order});
+  const OrderDetailScreen({
+    super.key,
+    required this.order,
+    this.onReorder,
+  });
 
   final Order order;
+  final void Function(List<CartItem> items)? onReorder;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +66,37 @@ class OrderDetailScreen extends StatelessWidget {
                 value: '\$${order.total.toStringAsFixed(2)}',
               ),
               const SizedBox(height: 16),
+              if (onReorder != null && items.isNotEmpty) ...[
+                ElevatedButton(
+                  onPressed: () {
+                    final cartItems = items
+                        .map(
+                          (item) => CartItem(
+                            name: item.name,
+                            price: item.unitPrice,
+                            quantity: item.quantity,
+                            details: 'Reorder',
+                            imagePath: _resolveImagePath(item.name),
+                          ),
+                        )
+                        .toList();
+                    onReorder!(cartItems);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Items added to cart.')),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: CoffeePalette.espresso,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text('Reorder items'),
+                ),
+                const SizedBox(height: 16),
+              ],
               Text('Store', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               _InfoCard(

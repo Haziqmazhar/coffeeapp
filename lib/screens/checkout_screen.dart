@@ -1,16 +1,16 @@
-import 'package:flutter/material.dart';
+import "package:flutter/material.dart";
 
-import 'package:flutter_stripe/flutter_stripe.dart';
+import "package:flutter_stripe/flutter_stripe.dart";
 
-import '../data/orders_service.dart';
-import '../data/payments_service.dart';
-import '../data/profile_service.dart';
-import '../models/cart_item.dart';
-import '../theme/coffee_palette.dart';
-import 'payment_methods_screen.dart';
-import 'order_status_screen.dart';
+import "../data/orders_service.dart";
+import "../data/payments_service.dart";
+import "../data/profile_service.dart";
+import "../models/cart_item.dart";
+import "../theme/coffee_palette.dart";
+import "payment_methods_screen.dart";
+import "order_status_screen.dart";
 
-class CheckoutScreen extends StatelessWidget {
+class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({
     super.key,
     required this.items,
@@ -24,8 +24,25 @@ class CheckoutScreen extends StatelessWidget {
   final VoidCallback onOrderPlaced;
   final void Function(List<CartItem> items) onReorder;
 
-  double get _tax => subtotal * 0.08;
-  double get _total => subtotal + _tax;
+  @override
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends State<CheckoutScreen> {
+  late Future<_PaymentSummary?> _paymentFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _paymentFuture = _fetchPaymentSummary();
+  }
+
+  void _refreshPayment() {
+    setState(() => _paymentFuture = _fetchPaymentSummary());
+  }
+
+  double get _tax => widget.subtotal * 0.08;
+  double get _total => widget.subtotal + _tax;
 
   @override
   Widget build(BuildContext context) {
@@ -34,72 +51,74 @@ class CheckoutScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: CoffeePalette.cream,
         elevation: 0,
-        title: Text('Checkout', style: Theme.of(context).textTheme.titleLarge),
+        title: Text("Checkout", style: Theme.of(context).textTheme.titleLarge),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
         children: [
-          _SectionTitle(label: 'Pickup'),
+          const _SectionTitle(label: "Pickup"),
           const SizedBox(height: 8),
           _InfoCard(
-            title: 'Downtown Cafe',
-            subtitle: 'Pick-up in 6–9 min',
-            actionLabel: 'Change store',
+            title: "Downtown Cafe",
+            subtitle: "Pick-up in 6-9 min",
+            actionLabel: "Change store",
             onAction: () {},
           ),
           const SizedBox(height: 16),
-          _SectionTitle(label: 'Order Summary'),
+          const _SectionTitle(label: "Order Summary"),
           const SizedBox(height: 8),
-          ...items.map(
+          ...widget.items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _LineItem(
-                label: '${item.quantity}× ${item.name}',
-                value: '\$${(item.price * item.quantity).toStringAsFixed(2)}',
+                label: "${item.quantity}x ${item.name}",
+                value: "\$${(item.price * item.quantity).toStringAsFixed(2)}",
               ),
             ),
           ),
           const SizedBox(height: 6),
-          _LineItem(label: 'Subtotal', value: '\$${subtotal.toStringAsFixed(2)}'),
-          _LineItem(label: 'Tax (8%)', value: '\$${_tax.toStringAsFixed(2)}'),
-          _LineItem(label: 'Total', value: '\$${_total.toStringAsFixed(2)}'),
+          _LineItem(label: "Subtotal", value: "\$${widget.subtotal.toStringAsFixed(2)}"),
+          _LineItem(label: "Tax (8%)", value: "\$${_tax.toStringAsFixed(2)}"),
+          _LineItem(label: "Total", value: "\$${_total.toStringAsFixed(2)}"),
           const SizedBox(height: 16),
-          _SectionTitle(label: 'Payment'),
+          const _SectionTitle(label: "Payment"),
           const SizedBox(height: 8),
           FutureBuilder<_PaymentSummary?>(
-            future: _fetchPaymentSummary(),
+            future: _paymentFuture,
             builder: (context, snapshot) {
               final payment = snapshot.data;
               final title = payment == null
-                  ? 'No payment method'
-                  : '${payment.brand} ???? ${payment.last4}';
+                  ? "No payment method"
+                  : "${payment.brand} **** ${payment.last4}";
               final subtitle = payment == null
-                  ? 'Add a card to continue'
-                  : 'Tap to change';
+                  ? "Add a card to continue"
+                  : "Tap to change";
               return _InfoCard(
                 title: title,
                 subtitle: subtitle,
-                actionLabel: 'Change',
-                onAction: () {
-                  Navigator.of(context).push(
+                actionLabel: "Change",
+                onAction: () async {
+                  await Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const PaymentMethodsScreen(),
                     ),
                   );
+                  if (!mounted) return;
+                  _refreshPayment();
                 },
               );
             },
           ),
-const SizedBox(height: 24),
+          const SizedBox(height: 24),
         ],
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: _PlaceOrderButton(
-          items: items,
+          items: widget.items,
           total: _total,
-          onOrderPlaced: onOrderPlaced,
-          onReorder: onReorder,
+          onOrderPlaced: widget.onOrderPlaced,
+          onReorder: widget.onReorder,
         ),
       ),
     );
@@ -136,7 +155,7 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
               if (profile == null) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please sign in first.')),
+                  const SnackBar(content: Text("Please sign in first.")),
                 );
                 return;
               }
@@ -162,7 +181,7 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
                 await Stripe.instance.initPaymentSheet(
                   paymentSheetParameters: SetupPaymentSheetParameters(
                     paymentIntentClientSecret: clientSecret,
-                    merchantDisplayName: 'CoffeeArq',
+                    merchantDisplayName: "CoffeeArq",
                   ),
                 );
                 await Stripe.instance.presentPaymentSheet();
@@ -175,7 +194,7 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
                 widget.onOrderPlaced();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Order placed')),
+                  const SnackBar(content: Text("Order placed")),
                 );
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -190,7 +209,7 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
               } catch (_) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Failed to place order.')),
+                  const SnackBar(content: Text("Failed to place order.")),
                 );
               } finally {
                 if (mounted) setState(() => _submitting = false);
@@ -210,7 +229,7 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
               width: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Text('Place Order  \$${widget.total.toStringAsFixed(2)}'),
+          : Text("Place Order  \$${widget.total.toStringAsFixed(2)}"),
     );
   }
 }
@@ -278,7 +297,6 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
-
 
 Future<_PaymentSummary?> _fetchPaymentSummary() async {
   final profile = await ProfileService().fetchProfile();

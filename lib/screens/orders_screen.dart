@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../data/orders_service.dart';
+import '../models/cart_item.dart';
 import '../theme/coffee_palette.dart';
 import 'order_detail_screen.dart';
 
 class OrdersScreen extends StatelessWidget {
-  const OrdersScreen({super.key});
+  const OrdersScreen({super.key, required this.onReorder});
+
+  final void Function(List<CartItem> items) onReorder;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +58,10 @@ class OrdersScreen extends StatelessWidget {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => OrderDetailScreen(order: order),
+                              builder: (_) => OrderDetailScreen(
+                                order: order,
+                                onReorder: onReorder,
+                              ),
                             ),
                           );
                         },
@@ -84,7 +90,10 @@ class OrdersScreen extends StatelessWidget {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => OrderDetailScreen(order: order),
+                              builder: (_) => OrderDetailScreen(
+                                order: order,
+                                onReorder: onReorder,
+                              ),
                             ),
                           );
                         },
@@ -186,7 +195,6 @@ class _OrderCard extends StatelessWidget {
             Text(store, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(items, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 6),
             Text(eta, style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
