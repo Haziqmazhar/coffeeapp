@@ -8,6 +8,7 @@ class Profile {
     required this.authUserId,
     required this.name,
     required this.email,
+    required this.role,
     required this.orderUpdates,
     required this.pickupReminders,
   });
@@ -16,6 +17,7 @@ class Profile {
   final String authUserId;
   final String name;
   final String email;
+  final String role;
   final bool orderUpdates;
   final bool pickupReminders;
 
@@ -25,6 +27,7 @@ class Profile {
       authUserId: data['auth_user_id'] as String,
       name: data['name'] as String,
       email: data['email'] as String,
+      role: (data['role'] as String?) ?? 'customer',
       orderUpdates: (data['order_updates'] as bool?) ?? true,
       pickupReminders: (data['pickup_reminders'] as bool?) ?? false,
     );
@@ -51,6 +54,7 @@ class ProfileService {
   Future<Profile> upsertProfile({
     required String name,
     required String email,
+    String? role,
     bool? orderUpdates,
     bool? pickupReminders,
   }) async {
@@ -69,6 +73,9 @@ class ProfileService {
     }
     if (pickupReminders != null) {
       payload['pickup_reminders'] = pickupReminders;
+    }
+    if (role != null) {
+      payload['role'] = role;
     }
 
     final response =

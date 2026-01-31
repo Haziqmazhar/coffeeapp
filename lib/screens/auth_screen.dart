@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/profile_service.dart';
 import '../data/supabase_client.dart';
 import '../theme/coffee_palette.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.requiredRole});
+
+  final String? requiredRole;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -27,9 +30,8 @@ class _AuthScreenState extends State<AuthScreen> {
     _authStream = supabase.auth.onAuthStateChange;
     _authSub = _authStream.listen((event) {
       final session = event.session;
-      if (session != null && mounted) {
-        setState(() => _isLoading = false);
-        Navigator.pop(context, true);
+      if (session != null) {
+        _validateRole();
       }
     });
   }
@@ -94,6 +96,32 @@ class _AuthScreenState extends State<AuthScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _validateRole() async {
+    if (!mounted) return;
+    final requiredRole = widget.requiredRole;
+    if (requiredRole == null || requiredRole.isEmpty) {
+      setState(() => _isLoading = false);
+      Navigator.pop(context, true);
+      return;
+    }
+
+    final profile = await ProfileService().fetchProfile();
+    final role = profile?.role ?? 'customer';
+    final allowed = role == requiredRole || role == 'admin';
+    if (!allowed) {
+      await supabase.auth.signOut();
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No staff access for this account.')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = false);
+    Navigator.pop(context, true);
   }
 
   @override

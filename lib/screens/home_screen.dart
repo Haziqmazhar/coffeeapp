@@ -12,21 +12,31 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
     required this.currentStore,
+    required this.currentStoreId,
     required this.cartCount,
     required this.cartTotal,
     required this.onQuickAdd,
     required this.onCartTap,
     required this.onStoreTap,
     required this.onCategoryTap,
+    required this.showStorePicker,
+    required this.showRoleSwitcher,
+    required this.currentRole,
+    required this.onRoleChange,
   });
 
   final String currentStore;
+  final String? currentStoreId;
   final int cartCount;
   final double cartTotal;
   final void Function(CartItem item) onQuickAdd;
   final VoidCallback onCartTap;
   final VoidCallback onStoreTap;
   final void Function(String category) onCategoryTap;
+  final bool showStorePicker;
+  final bool showRoleSwitcher;
+  final String currentRole;
+  final ValueChanged<String> onRoleChange;
 
   @override
   Widget build(BuildContext context) {
@@ -49,19 +59,24 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _TopBar(),
-                ),
-                const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: _StorePill(
-                      label: 'Current Store: $currentStore',
-                      onTap: onStoreTap,
-                    ),
+                  child: _TopBar(
+                    showRoleSwitcher: showRoleSwitcher,
+                    currentRole: currentRole,
+                    onRoleChange: onRoleChange,
                   ),
                 ),
+                const SizedBox(height: 10),
+                if (showStorePicker)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _StorePill(
+                        label: 'Current Store: $currentStore',
+                        onTap: onStoreTap,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 18),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
@@ -79,7 +94,7 @@ class HomeScreen extends StatelessWidget {
                 SizedBox(
                   height: 240,
                   child: FutureBuilder<List<Drink>>(
-                    future: DrinksService().fetchDrinks(),
+                    future: DrinksService().fetchDrinksForStore(currentStoreId),
                     builder: (context, snapshot) {
                       final drinks = snapshot.data;
                       final items = drinks == null || drinks.isEmpty
@@ -200,16 +215,107 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.showRoleSwitcher,
+    required this.currentRole,
+    required this.onRoleChange,
+  });
+
+  final bool showRoleSwitcher;
+  final String currentRole;
+  final ValueChanged<String> onRoleChange;
+
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Text(
-        'CoffeeArq',
-        style: GoogleFonts.baloo2(
-          fontSize: 26,
-          fontWeight: FontWeight.w700,
-          color: CoffeePalette.espresso,
+    return Row(
+      children: [
+        if (showRoleSwitcher)
+          InkWell(
+            onTap: () async {
+              final selected = await showModalBottomSheet<String>(
+                context: context,
+                backgroundColor: CoffeePalette.card,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                builder: (_) => _RolePicker(currentRole: currentRole),
+              );
+              if (selected != null && selected != currentRole) {
+                onRoleChange(selected);
+              }
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: CoffeePalette.espresso,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    currentRole == 'staff' ? 'Staff' : 'Customer',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+                ],
+              ),
+            ),
+          )
+        else
+          const SizedBox(width: 0),
+        const Spacer(),
+        Text(
+          'CoffeeArq',
+          style: GoogleFonts.baloo2(
+            fontSize: 26,
+            fontWeight: FontWeight.w700,
+            color: CoffeePalette.espresso,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RolePicker extends StatelessWidget {
+  const _RolePicker({required this.currentRole});
+
+  final String currentRole;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose mode',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            ...['customer', 'staff'].map((role) {
+              final isSelected = role == currentRole;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  role == 'staff' ? 'Staff' : 'Customer',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                trailing: isSelected
+                    ? const Icon(Icons.check_circle,
+                        color: CoffeePalette.espresso)
+                    : const Icon(Icons.circle_outlined,
+                        color: CoffeePalette.espressoSoft),
+                onTap: () => Navigator.of(context).pop(role),
+              );
+            }),
+          ],
         ),
       ),
     );

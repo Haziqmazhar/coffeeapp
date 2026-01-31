@@ -52,7 +52,7 @@ class OrdersScreen extends StatelessWidget {
                       child: _OrderCard(
                         status: _titleCase(order.status),
                         eta: _formatDate(order.createdAt),
-                        store: 'Downtown Cafe',
+                        store: order.storeName ?? 'Downtown Cafe',
                         total: '\$${order.total.toStringAsFixed(2)}',
                         items: 'View details',
                         onTap: () {
@@ -83,7 +83,7 @@ class OrdersScreen extends StatelessWidget {
                       child: _OrderCard(
                         status: _titleCase(order.status),
                         eta: _formatDate(order.createdAt),
-                        store: 'Downtown Cafe',
+                        store: order.storeName ?? 'Downtown Cafe',
                         total: '\$${order.total.toStringAsFixed(2)}',
                         items: 'View details',
                         compact: true,

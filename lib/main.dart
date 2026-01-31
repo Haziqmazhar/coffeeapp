@@ -1,14 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'models/cart_item.dart';
+import 'data/profile_service.dart';
 import 'screens/account_screen.dart';
 import 'screens/cart_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/menu_screen.dart';
 import 'screens/orders_screen.dart';
+import 'data/stores_service.dart';
+import 'screens/staff_home_screen.dart';
+import 'screens/staff_menu_screen.dart';
+import 'screens/staff_orders_screen.dart';
 import 'theme/coffee_palette.dart';
 
 Future<void> main() async {
@@ -170,20 +177,83 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int _index = 0;
   final List<CartItem> _cartItems = [];
-  final List<String> _stores = const [
-    'Downtown Cafe',
-    'Harbor Point',
-    'City Square',
-    'Campus Hub',
-  ];
-  String _currentStore = 'Downtown Cafe';
+  List<Store> _stores = const [];
+  Store? _currentStore;
   String _menuCategory = 'All';
+  bool _loadingStores = true;
+  String _userRole = 'customer';
+  String _viewMode = 'customer';
+  StreamSubscription<AuthState>? _authSub;
 
   int get _cartCount =>
       _cartItems.fold(0, (sum, item) => sum + item.quantity);
 
   double get _cartTotal =>
       _cartItems.fold(0, (sum, item) => sum + (item.price * item.quantity));
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStores();
+    _loadUserRole();
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+      _loadUserRole();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadStores() async {
+    try {
+      final stores = await StoresService().fetchStores();
+      if (!mounted) return;
+      if (stores.isEmpty) {
+        setState(() {
+          _stores = const [];
+          _currentStore = null;
+          _loadingStores = false;
+        });
+        return;
+      }
+      setState(() {
+        _stores = stores;
+        _currentStore = stores.first;
+        _loadingStores = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingStores = false);
+    }
+  }
+
+  Future<void> _loadUserRole() async {
+    final profile = await ProfileService().fetchProfile();
+    if (!mounted) return;
+    final role = profile?.role ?? 'customer';
+    final canStaff = role == 'staff' || role == 'admin';
+    setState(() {
+      _userRole = role;
+      if (!canStaff) {
+        _viewMode = 'customer';
+      } else if (_viewMode != 'staff') {
+        _viewMode = 'customer';
+      }
+    });
+  }
+
+  bool get _canUseStaff => _userRole == 'staff' || _userRole == 'admin';
+  bool get _showStorePicker => _stores.length > 1;
+  String get _currentStoreName => _currentStore?.name ?? 'Downtown Cafe';
+  String? get _currentStoreId => _currentStore?.id;
+
+  void _setViewMode(String mode) {
+    if (!_canUseStaff && mode == 'staff') return;
+    setState(() => _viewMode = mode);
+  }
 
   void _addToCart(CartItem item) {
     setState(() {
@@ -229,7 +299,8 @@ class _RootShellState extends State<RootShell> {
   }
 
   Future<void> _openStorePicker() async {
-    final selected = await showModalBottomSheet<String>(
+    if (_loadingStores || !_showStorePicker) return;
+    final selected = await showModalBottomSheet<Store>(
       context: context,
       backgroundColor: CoffeePalette.card,
       shape: const RoundedRectangleBorder(
@@ -254,9 +325,10 @@ class _RootShellState extends State<RootShell> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
+    final customerScreens = [
       HomeScreen(
-        currentStore: _currentStore,
+        currentStore: _currentStoreName,
+        currentStoreId: _currentStoreId,
         cartCount: _cartCount,
         cartTotal: _cartTotal,
         onQuickAdd: _addToCart,
@@ -266,6 +338,8 @@ class _RootShellState extends State<RootShell> {
               builder: (_) => CartScreen(
                 items: _cartItems,
                 total: _cartTotal,
+                storeName: _currentStoreName,
+                storeId: _currentStoreId,
                 onUpdateQuantity: _updateQuantity,
                 onRemoveItem: _removeItem,
                 onCheckoutComplete: _clearCart,
@@ -276,14 +350,34 @@ class _RootShellState extends State<RootShell> {
         },
         onStoreTap: _openStorePicker,
         onCategoryTap: _openMenuCategory,
+        showStorePicker: _showStorePicker,
+        showRoleSwitcher: _canUseStaff,
+        currentRole: _viewMode,
+        onRoleChange: _setViewMode,
       ),
       MenuScreen(
         onAddToCart: _addToCart,
         initialCategory: _menuCategory,
+        currentStore: _currentStoreName,
+        currentStoreId: _currentStoreId,
+        showStorePicker: _showStorePicker,
+        onStoreTap: _openStorePicker,
       ),
       OrdersScreen(onReorder: _setCartItems),
       const AccountScreen(),
     ];
+
+    final staffScreens = [
+      StaffHomeScreen(
+        currentRole: _viewMode,
+        onRoleChange: _setViewMode,
+      ),
+      StaffMenuScreen(storeId: _currentStoreId),
+      StaffOrdersScreen(storeId: _currentStoreId),
+      const AccountScreen(),
+    ];
+
+    final screens = _viewMode == 'staff' ? staffScreens : customerScreens;
     return Scaffold(
       body: screens[_index],
       bottomNavigationBar: NavigationBar(
@@ -310,8 +404,8 @@ class _StorePicker extends StatelessWidget {
     required this.stores,
   });
 
-  final String currentStore;
-  final List<String> stores;
+  final Store? currentStore;
+  final List<Store> stores;
 
   @override
   Widget build(BuildContext context) {
@@ -328,11 +422,11 @@ class _StorePicker extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ...stores.map((store) {
-              final isSelected = store == currentStore;
+              final isSelected = store.id == currentStore?.id;
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  store,
+                  store.name,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 trailing: isSelected

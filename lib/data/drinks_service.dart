@@ -39,6 +39,38 @@ class DrinksService {
         .toList();
   }
 
+  Future<List<Drink>> fetchDrinksForStore(String? storeId) async {
+    final drinks = await fetchDrinks();
+    if (storeId == null || storeId.isEmpty) {
+      return drinks;
+    }
+
+    final response = await supabase
+        .from('store_drink_availability')
+        .select('drink_id, is_available')
+        .eq('store_id', storeId);
+
+    final availability = <String, bool>{};
+    for (final row in (response as List<dynamic>)) {
+      final data = row as Map<String, dynamic>;
+      availability[data['drink_id'] as String] =
+          (data['is_available'] as bool?) ?? true;
+    }
+
+    return drinks
+        .map(
+          (drink) => Drink(
+            id: drink.id,
+            name: drink.name,
+            description: drink.description,
+            price: drink.price,
+            category: drink.category,
+            isAvailable: availability[drink.id] ?? drink.isAvailable,
+          ),
+        )
+        .toList();
+  }
+
   Future<void> createDrink({
     required String name,
     required String description,
@@ -49,5 +81,27 @@ class DrinksService {
       'description': description,
       'price': price,
     });
+  }
+
+  Future<void> setAvailability({
+    required String drinkId,
+    required bool isAvailable,
+  }) async {
+    await supabase
+        .from('drinks')
+        .update({'is_available': isAvailable})
+        .eq('id', drinkId);
+  }
+
+  Future<void> setAvailabilityForStore({
+    required String storeId,
+    required String drinkId,
+    required bool isAvailable,
+  }) async {
+    await supabase.from('store_drink_availability').upsert({
+      'store_id': storeId,
+      'drink_id': drinkId,
+      'is_available': isAvailable,
+    }, onConflict: 'store_id,drink_id');
   }
 }

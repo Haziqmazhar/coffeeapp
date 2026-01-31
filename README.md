@@ -46,6 +46,48 @@ Deno.serve(async (req) => {
 
 This project is a starting point for a Flutter application.
 
+## Staff Dashboard (Supabase tables)
+
+Add/verify these tables/columns for the staff dashboard:
+
+```sql
+-- Stores
+create table if not exists stores (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  is_open boolean not null default true
+);
+
+-- Store-specific drink availability
+create table if not exists store_drink_availability (
+  store_id uuid references stores(id) on delete cascade,
+  drink_id uuid references drinks(id) on delete cascade,
+  is_available boolean not null default true,
+  primary key (store_id, drink_id)
+);
+
+-- Orders (ensure these columns exist)
+alter table orders
+  add column if not exists store_name text,
+  add column if not exists store_id uuid;
+
+-- Users (role for staff/admin)
+alter table users
+  add column if not exists role text default 'customer';
+
+-- Drinks (ensure availability flag exists)
+alter table drinks
+  add column if not exists is_available boolean not null default true;
+```
+
+Status values used in the app:
+- `received` → `preparing` → `ready` → `completed`
+
+Roles used in the app:
+- `customer` (default)
+- `staff` (store workers)
+- `admin` (brand/platform admins)
+
 A few resources to get you started if this is your first Flutter project:
 
 - [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)

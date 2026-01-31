@@ -9,12 +9,16 @@ class Order {
     required this.status,
     required this.total,
     required this.createdAt,
+    this.storeName,
+    this.storeId,
   });
 
   final String id;
   final String status;
   final double total;
   final DateTime createdAt;
+  final String? storeName;
+  final String? storeId;
 
   factory Order.fromMap(Map<String, dynamic> data) {
     return Order(
@@ -22,6 +26,8 @@ class Order {
       status: data['status'] as String,
       total: (data['total'] as num).toDouble(),
       createdAt: DateTime.parse(data['created_at'] as String),
+      storeName: data['store_name'] as String?,
+      storeId: data['store_id'] as String?,
     );
   }
 }
@@ -79,6 +85,8 @@ class OrdersService {
   Future<Order> createOrder({
     required List<CartItem> items,
     required double total,
+    String? storeName,
+    String? storeId,
   }) async {
     final session = _session;
     if (session == null) {
@@ -98,7 +106,9 @@ class OrdersService {
         .insert({
           'user_id': userId,
           'total': total,
-          'status': 'preparing',
+          'status': 'received',
+          if (storeName != null) 'store_name': storeName,
+          if (storeId != null) 'store_id': storeId,
         })
         .select()
         .single();

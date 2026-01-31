@@ -15,12 +15,16 @@ class CheckoutScreen extends StatefulWidget {
     super.key,
     required this.items,
     required this.subtotal,
+    required this.storeName,
+    required this.storeId,
     required this.onOrderPlaced,
     required this.onReorder,
   });
 
   final List<CartItem> items;
   final double subtotal;
+  final String storeName;
+  final String? storeId;
   final VoidCallback onOrderPlaced;
   final void Function(List<CartItem> items) onReorder;
 
@@ -59,7 +63,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const _SectionTitle(label: "Pickup"),
           const SizedBox(height: 8),
           _InfoCard(
-            title: "Downtown Cafe",
+            title: widget.storeName,
             subtitle: "Pick-up in 6-9 min",
             actionLabel: "Change store",
             onAction: () {},
@@ -117,6 +121,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: _PlaceOrderButton(
           items: widget.items,
           total: _total,
+          storeName: widget.storeName,
+          storeId: widget.storeId,
           onOrderPlaced: widget.onOrderPlaced,
           onReorder: widget.onReorder,
         ),
@@ -129,12 +135,16 @@ class _PlaceOrderButton extends StatefulWidget {
   const _PlaceOrderButton({
     required this.items,
     required this.total,
+    required this.storeName,
+    required this.storeId,
     required this.onOrderPlaced,
     required this.onReorder,
   });
 
   final List<CartItem> items;
   final double total;
+  final String storeName;
+  final String? storeId;
   final VoidCallback onOrderPlaced;
   final void Function(List<CartItem> items) onReorder;
 
@@ -190,6 +200,8 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
                 final order = await service.createOrder(
                   items: widget.items,
                   total: widget.total,
+                  storeName: widget.storeName,
+                  storeId: widget.storeId,
                 );
                 widget.onOrderPlaced();
                 if (!mounted) return;

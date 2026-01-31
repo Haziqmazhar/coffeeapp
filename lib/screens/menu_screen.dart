@@ -9,10 +9,18 @@ class MenuScreen extends StatefulWidget {
   const MenuScreen({
     super.key,
     required this.onAddToCart,
+    required this.currentStore,
+    required this.currentStoreId,
+    required this.showStorePicker,
+    required this.onStoreTap,
     this.initialCategory = 'All',
   });
 
   final void Function(CartItem item) onAddToCart;
+  final String currentStore;
+  final String? currentStoreId;
+  final bool showStorePicker;
+  final VoidCallback onStoreTap;
   final String initialCategory;
 
   @override
@@ -61,26 +69,36 @@ class _MenuScreenState extends State<MenuScreen> {
                     const Icon(Icons.search, color: CoffeePalette.espresso),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: CoffeePalette.espresso,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text(
-                        'Current Store: Downtown Cafe',
-                        style: TextStyle(color: Colors.white),
+                if (widget.showStorePicker) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: InkWell(
+                      onTap: widget.onStoreTap,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: CoffeePalette.espresso,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Current Store: ${widget.currentStore}',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.keyboard_arrow_down,
+                                color: Colors.white),
+                          ],
+                        ),
                       ),
-                      SizedBox(width: 6),
-                      Icon(Icons.keyboard_arrow_down, color: Colors.white),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -104,7 +122,7 @@ class _MenuScreenState extends State<MenuScreen> {
           const SizedBox(height: 10),
           Expanded(
             child: FutureBuilder<List<Drink>>(
-              future: drinksService.fetchDrinks(),
+              future: drinksService.fetchDrinksForStore(widget.currentStoreId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

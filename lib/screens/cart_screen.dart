@@ -12,6 +12,8 @@ class CartScreen extends StatefulWidget {
     required this.onRemoveItem,
     required this.onCheckoutComplete,
     required this.onReorder,
+    required this.storeName,
+    required this.storeId,
   });
 
   final List<CartItem> items;
@@ -20,6 +22,8 @@ class CartScreen extends StatefulWidget {
   final void Function(String key) onRemoveItem;
   final VoidCallback onCheckoutComplete;
   final void Function(List<CartItem> items) onReorder;
+  final String storeName;
+  final String? storeId;
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -161,6 +165,8 @@ class _CartScreenState extends State<CartScreen> {
                       builder: (_) => CheckoutScreen(
                         items: widget.items,
                         subtotal: _total,
+                        storeName: widget.storeName,
+                        storeId: widget.storeId,
                         onOrderPlaced: widget.onCheckoutComplete,
                         onReorder: widget.onReorder,
                       ),
