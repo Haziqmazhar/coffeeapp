@@ -170,32 +170,8 @@ class _PlaceOrderButtonState extends State<_PlaceOrderButton> {
                 return;
               }
 
-              final methods =
-                  await PaymentsService().fetchPaymentMethods(profile.id);
-              if (methods.isEmpty) {
-                if (!mounted) return;
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const PaymentMethodsScreen(),
-                  ),
-                );
-                return;
-              }
-
               setState(() => _submitting = true);
               try {
-                final payment = PaymentsService();
-                final amount = (widget.total * 100).round();
-                final clientSecret =
-                    await payment.createPaymentIntent(amount: amount);
-                await Stripe.instance.initPaymentSheet(
-                  paymentSheetParameters: SetupPaymentSheetParameters(
-                    paymentIntentClientSecret: clientSecret,
-                    merchantDisplayName: "CoffeeArq",
-                  ),
-                );
-                await Stripe.instance.presentPaymentSheet();
-
                 final service = OrdersService();
                 final order = await service.createOrder(
                   items: widget.items,

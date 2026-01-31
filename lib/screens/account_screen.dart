@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,6 +24,7 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   final _profileService = ProfileService();
   Profile? _profile;
+  List<String> _addresses = const [];
   bool _orderUpdates = true;
   bool _pickupReminders = false;
   bool _notificationsAllowed = true;
@@ -114,6 +116,7 @@ class _AccountScreenState extends State<AccountScreen> {
       if (!mounted) return;
       setState(() {
         _profile = existing;
+        _addresses = existing.addresses;
         _orderUpdates = existing.orderUpdates;
         _pickupReminders = existing.pickupReminders;
       });
@@ -135,8 +138,63 @@ class _AccountScreenState extends State<AccountScreen> {
     if (!mounted) return;
     setState(() {
       _profile = created;
+      _addresses = created.addresses;
       _orderUpdates = created.orderUpdates;
       _pickupReminders = created.pickupReminders;
+    });
+  }
+
+  Future<void> _saveProfileUpdates({
+    required String name,
+    required String email,
+    required String phone,
+    required String avatarUrl,
+  }) async {
+    if (_profile != null) {
+      setState(() {
+        _profile = Profile(
+          id: _profile!.id,
+          authUserId: _profile!.authUserId,
+          name: name,
+          email: email,
+          role: _profile!.role,
+          phone: phone,
+          avatarUrl: avatarUrl,
+          addresses: _addresses,
+          orderUpdates: _orderUpdates,
+          pickupReminders: _pickupReminders,
+        );
+      });
+    }
+    final saved = await _profileService.upsertProfile(
+      name: name,
+      email: email,
+      phone: phone,
+      avatarUrl: avatarUrl,
+      addresses: _addresses,
+      orderUpdates: _orderUpdates,
+      pickupReminders: _pickupReminders,
+    );
+    if (!mounted) return;
+    setState(() => _profile = saved);
+    await _loadProfile();
+  }
+
+  Future<void> _saveAddresses(List<String> addresses) async {
+    if (_profile == null) return;
+    final saved = await _profileService.upsertProfile(
+      name: _profile!.name,
+      email: _profile!.email,
+      phone: _profile!.phone,
+      avatarUrl: _profile!.avatarUrl,
+      addresses: addresses,
+      orderUpdates: _orderUpdates,
+      pickupReminders: _pickupReminders,
+    );
+    if (!mounted) return;
+    setState(() {
+      _profile = saved;
+      _addresses = saved.addresses;
     });
   }
 
@@ -152,6 +210,8 @@ class _AccountScreenState extends State<AccountScreen> {
           _ProfileCard(
             name: _profile?.name ?? 'Guest',
             email: _profile?.email ?? 'Sign in to save your profile',
+            phone: _profile?.phone ?? '',
+            avatarUrl: _profile?.avatarUrl ?? '',
             onEdit: _profile == null
                 ? null
                 : () async {
@@ -166,16 +226,25 @@ class _AccountScreenState extends State<AccountScreen> {
                       builder: (_) => _EditProfileSheet(
                         initialName: _profile!.name,
                         initialEmail: _profile!.email,
+                        initialPhone: _profile!.phone,
+                        initialAvatarUrl: _profile!.avatarUrl,
+                        onAvatarSaved: (url) async {
+                          await _saveProfileUpdates(
+                            name: _profile!.name,
+                            email: _profile!.email,
+                            phone: _profile!.phone,
+                            avatarUrl: url,
+                          );
+                        },
                       ),
                     );
                     if (updated != null) {
-                      final saved = await _profileService.upsertProfile(
+                      await _saveProfileUpdates(
                         name: updated.name,
                         email: updated.email,
-                        orderUpdates: _orderUpdates,
-                        pickupReminders: _pickupReminders,
+                        phone: updated.phone,
+                        avatarUrl: updated.avatarUrl,
                       );
-                      setState(() => _profile = saved);
                     }
                   },
           ),
@@ -188,7 +257,7 @@ class _AccountScreenState extends State<AccountScreen> {
             title: 'Edit Profile',
             subtitle: _profile == null
                 ? 'Sign in to edit profile'
-                : 'Update name and email',
+                : 'Update name, phone, photo',
             onTap: _profile == null
                 ? null
                 : () async {
@@ -203,17 +272,51 @@ class _AccountScreenState extends State<AccountScreen> {
                       builder: (_) => _EditProfileSheet(
                         initialName: _profile!.name,
                         initialEmail: _profile!.email,
+                        initialPhone: _profile!.phone,
+                        initialAvatarUrl: _profile!.avatarUrl,
+                        onAvatarSaved: (url) async {
+                          await _saveProfileUpdates(
+                            name: _profile!.name,
+                            email: _profile!.email,
+                            phone: _profile!.phone,
+                            avatarUrl: url,
+                          );
+                        },
                       ),
                     );
                     if (updated != null) {
-                      final saved = await _profileService.upsertProfile(
+                      await _saveProfileUpdates(
                         name: updated.name,
                         email: updated.email,
-                        orderUpdates: _orderUpdates,
-                        pickupReminders: _pickupReminders,
+                        phone: updated.phone,
+                        avatarUrl: updated.avatarUrl,
                       );
-                      if (!mounted) return;
-                      setState(() => _profile = saved);
+                    }
+                  },
+          ),
+          _SettingTile(
+            icon: Icons.location_on_outlined,
+            title: 'Saved Addresses',
+            subtitle: _addresses.isEmpty
+                ? 'Add your pickup locations'
+                : '${_addresses.length} saved',
+            onTap: _profile == null
+                ? null
+                : () async {
+                    final updated = await showModalBottomSheet<List<String>>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: CoffeePalette.cream,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      builder: (_) => _EditAddressesSheet(
+                        initialAddresses: _addresses,
+                      ),
+                    );
+                    if (updated != null) {
+                      await _saveAddresses(updated);
                     }
                   },
           ),
@@ -278,6 +381,9 @@ class _AccountScreenState extends State<AccountScreen> {
                 await _profileService.upsertProfile(
                   name: _profile!.name,
                   email: _profile!.email,
+                  phone: _profile!.phone,
+                  avatarUrl: _profile!.avatarUrl,
+                  addresses: _addresses,
                   orderUpdates: value,
                   pickupReminders: _pickupReminders,
                 );
@@ -300,6 +406,9 @@ class _AccountScreenState extends State<AccountScreen> {
                 await _profileService.upsertProfile(
                   name: _profile!.name,
                   email: _profile!.email,
+                  phone: _profile!.phone,
+                  avatarUrl: _profile!.avatarUrl,
+                  addresses: _addresses,
                   orderUpdates: _orderUpdates,
                   pickupReminders: value,
                 );
@@ -401,11 +510,15 @@ class _ProfileCard extends StatelessWidget {
   const _ProfileCard({
     required this.name,
     required this.email,
+    required this.phone,
+    required this.avatarUrl,
     required this.onEdit,
   });
 
   final String name;
   final String email;
+  final String phone;
+  final String avatarUrl;
   final VoidCallback? onEdit;
 
   @override
@@ -425,10 +538,15 @@ class _ProfileCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 28,
             backgroundColor: CoffeePalette.caramelSoft,
-            child: Icon(Icons.person, color: CoffeePalette.espresso, size: 28),
+            backgroundImage:
+                avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+            child: avatarUrl.isEmpty
+                ? const Icon(Icons.person,
+                    color: CoffeePalette.espresso, size: 28)
+                : null,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -444,6 +562,13 @@ class _ProfileCard extends StatelessWidget {
                   email,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
+                if (phone.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    phone,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ],
             ),
           ),
@@ -566,10 +691,16 @@ class _EditProfileSheet extends StatefulWidget {
   const _EditProfileSheet({
     required this.initialName,
     required this.initialEmail,
+    required this.initialPhone,
+    required this.initialAvatarUrl,
+    required this.onAvatarSaved,
   });
 
   final String initialName;
   final String initialEmail;
+  final String initialPhone;
+  final String initialAvatarUrl;
+  final ValueChanged<String> onAvatarSaved;
 
   @override
   State<_EditProfileSheet> createState() => _EditProfileSheetState();
@@ -578,18 +709,26 @@ class _EditProfileSheet extends StatefulWidget {
 class _EditProfileSheetState extends State<_EditProfileSheet> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _avatarController;
+  final _picker = ImagePicker();
+  bool _uploading = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
     _emailController = TextEditingController(text: widget.initialEmail);
+    _phoneController = TextEditingController(text: widget.initialPhone);
+    _avatarController = TextEditingController(text: widget.initialAvatarUrl);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
+    _avatarController.dispose();
     super.dispose();
   }
 
@@ -604,6 +743,40 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         children: [
           Text('Edit Profile', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),
+          Center(
+            child: CircleAvatar(
+              radius: 32,
+              backgroundColor: CoffeePalette.caramelSoft,
+              backgroundImage: _avatarController.text.trim().isNotEmpty
+                  ? NetworkImage(_avatarController.text.trim())
+                  : null,
+              child: _avatarController.text.trim().isEmpty
+                  ? const Icon(Icons.person,
+                      color: CoffeePalette.espresso, size: 30)
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: OutlinedButton.icon(
+              onPressed: _uploading ? null : _pickAndUploadAvatar,
+              icon: _uploading
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.photo_library_outlined),
+              label: const Text('Upload from gallery'),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: CoffeePalette.espresso),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _nameController,
             decoration: InputDecoration(
@@ -622,6 +795,20 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
               labelText: 'Email',
+              filled: true,
+              fillColor: CoffeePalette.card,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              labelText: 'Phone Number',
               filled: true,
               fillColor: CoffeePalette.card,
               border: OutlineInputBorder(
@@ -655,6 +842,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                       _ProfileData(
                         name: _nameController.text.trim(),
                         email: _emailController.text.trim(),
+                        phone: _phoneController.text.trim(),
+                        avatarUrl: _avatarController.text.trim(),
                       ),
                     );
                   },
@@ -675,11 +864,194 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       ),
     );
   }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final session = supabase.auth.currentSession;
+    if (session == null) return;
+
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 900,
+    );
+    if (file == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final bytes = await file.readAsBytes();
+      final userId = session.user.id;
+      final path = 'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await supabase.storage.from('avatars').uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              upsert: true,
+            ),
+          );
+      final publicUrl =
+          supabase.storage.from('avatars').getPublicUrl(path);
+      _avatarController.text = publicUrl;
+      if (mounted) setState(() {});
+      widget.onAvatarSaved(publicUrl);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to upload photo.')),
+      );
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
 }
 
 class _ProfileData {
-  const _ProfileData({required this.name, required this.email});
+  const _ProfileData({
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.avatarUrl,
+  });
 
   final String name;
   final String email;
+  final String phone;
+  final String avatarUrl;
+}
+
+class _EditAddressesSheet extends StatefulWidget {
+  const _EditAddressesSheet({required this.initialAddresses});
+
+  final List<String> initialAddresses;
+
+  @override
+  State<_EditAddressesSheet> createState() => _EditAddressesSheetState();
+}
+
+class _EditAddressesSheetState extends State<_EditAddressesSheet> {
+  late List<TextEditingController> _controllers;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = widget.initialAddresses
+        .map((address) => TextEditingController(text: address))
+        .toList();
+    if (_controllers.isEmpty) {
+      _controllers.add(TextEditingController());
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _addAddress() {
+    setState(() => _controllers.add(TextEditingController()));
+  }
+
+  void _removeAddress(int index) {
+    setState(() {
+      _controllers[index].dispose();
+      _controllers.removeAt(index);
+      if (_controllers.isEmpty) {
+        _controllers.add(TextEditingController());
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomPadding),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Saved Addresses', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          ..._controllers.asMap().entries.map((entry) {
+            final index = entry.key;
+            final controller = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      decoration: InputDecoration(
+                        labelText: 'Address ${index + 1}',
+                        filled: true,
+                        fillColor: CoffeePalette.card,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    onPressed: () => _removeAddress(index),
+                    icon: const Icon(Icons.close),
+                    color: CoffeePalette.espressoSoft,
+                  ),
+                ],
+              ),
+            );
+          }),
+          TextButton.icon(
+            onPressed: _addAddress,
+            icon: const Icon(Icons.add, color: CoffeePalette.espresso),
+            label: const Text('Add another address'),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: CoffeePalette.espresso),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    final addresses = _controllers
+                        .map((controller) => controller.text.trim())
+                        .where((value) => value.isNotEmpty)
+                        .toList();
+                    Navigator.pop(context, addresses);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: CoffeePalette.espresso,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Save'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

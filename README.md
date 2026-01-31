@@ -75,6 +75,15 @@ alter table orders
 alter table users
   add column if not exists role text default 'customer';
 
+-- Users (profile fields)
+alter table users
+  add column if not exists phone text,
+  add column if not exists avatar_url text,
+  add column if not exists addresses jsonb;
+
+-- Storage bucket for profile photos (run in SQL editor)
+-- Then create a public bucket named "avatars" in Storage.
+
 -- Drinks (ensure availability flag exists)
 alter table drinks
   add column if not exists is_available boolean not null default true;
