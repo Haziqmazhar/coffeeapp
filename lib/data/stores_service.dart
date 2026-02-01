@@ -31,4 +31,8 @@ class StoresService {
   Future<void> setStoreOpen(String storeId, bool isOpen) async {
     await supabase.from('stores').update({'is_open': isOpen}).eq('id', storeId);
   }
+
+  Future<void> setAllStoresOpen(bool isOpen) async {
+    await supabase.from('stores').update({'is_open': isOpen});
+  }
 }

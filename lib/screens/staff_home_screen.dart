@@ -8,10 +8,12 @@ class StaffHomeScreen extends StatelessWidget {
     super.key,
     required this.currentRole,
     required this.onRoleChange,
+    required this.canUseAdmin,
   });
 
   final String currentRole;
   final ValueChanged<String> onRoleChange;
+  final bool canUseAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +28,7 @@ class StaffHomeScreen extends StatelessWidget {
               _TopBar(
                 currentRole: currentRole,
                 onRoleChange: onRoleChange,
+                canUseAdmin: canUseAdmin,
               ),
               const SizedBox(height: 24),
               Text(
@@ -49,10 +52,12 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.currentRole,
     required this.onRoleChange,
+    required this.canUseAdmin,
   });
 
   final String currentRole;
   final ValueChanged<String> onRoleChange;
+  final bool canUseAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +71,10 @@ class _TopBar extends StatelessWidget {
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              builder: (_) => _RolePicker(currentRole: currentRole),
+              builder: (_) => _RolePicker(
+                currentRole: currentRole,
+                canUseAdmin: canUseAdmin,
+              ),
             );
             if (selected != null && selected != currentRole) {
               onRoleChange(selected);
@@ -83,7 +91,11 @@ class _TopBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  currentRole == 'staff' ? 'Staff' : 'Customer',
+                  currentRole == 'staff'
+                      ? 'Staff'
+                      : currentRole == 'admin'
+                          ? 'Admin'
+                          : 'Customer',
                   style: const TextStyle(color: Colors.white),
                 ),
                 const SizedBox(width: 6),
@@ -107,9 +119,13 @@ class _TopBar extends StatelessWidget {
 }
 
 class _RolePicker extends StatelessWidget {
-  const _RolePicker({required this.currentRole});
+  const _RolePicker({
+    required this.currentRole,
+    required this.canUseAdmin,
+  });
 
   final String currentRole;
+  final bool canUseAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -125,12 +141,20 @@ class _RolePicker extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
-            ...['customer', 'staff'].map((role) {
+            ...[
+              'customer',
+              'staff',
+              if (canUseAdmin) 'admin',
+            ].map((role) {
               final isSelected = role == currentRole;
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  role == 'staff' ? 'Staff' : 'Customer',
+                  role == 'staff'
+                      ? 'Staff'
+                      : role == 'admin'
+                          ? 'Admin'
+                          : 'Customer',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 trailing: isSelected

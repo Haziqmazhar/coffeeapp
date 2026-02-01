@@ -16,6 +16,10 @@ import 'data/stores_service.dart';
 import 'screens/staff_home_screen.dart';
 import 'screens/staff_menu_screen.dart';
 import 'screens/staff_orders_screen.dart';
+import 'screens/admin_dashboard_screen.dart';
+import 'screens/admin_menu_editor_screen.dart';
+import 'screens/admin_staff_screen.dart';
+import 'screens/admin_settings_screen.dart';
 import 'theme/coffee_palette.dart';
 
 Future<void> main() async {
@@ -246,12 +250,14 @@ class _RootShellState extends State<RootShell> {
   }
 
   bool get _canUseStaff => _userRole == 'staff' || _userRole == 'admin';
+  bool get _canUseAdmin => _userRole == 'admin';
   bool get _showStorePicker => _stores.length > 1;
   String get _currentStoreName => _currentStore?.name ?? 'Downtown Cafe';
   String? get _currentStoreId => _currentStore?.id;
 
   void _setViewMode(String mode) {
     if (!_canUseStaff && mode == 'staff') return;
+    if (!_canUseAdmin && mode == 'admin') return;
     setState(() => _viewMode = mode);
   }
 
@@ -352,6 +358,7 @@ class _RootShellState extends State<RootShell> {
         onCategoryTap: _openMenuCategory,
         showStorePicker: _showStorePicker,
         showRoleSwitcher: _canUseStaff,
+        canUseAdmin: _canUseAdmin,
         currentRole: _viewMode,
         onRoleChange: _setViewMode,
       ),
@@ -371,13 +378,29 @@ class _RootShellState extends State<RootShell> {
       StaffHomeScreen(
         currentRole: _viewMode,
         onRoleChange: _setViewMode,
+        canUseAdmin: _canUseAdmin,
       ),
       StaffMenuScreen(storeId: _currentStoreId),
       StaffOrdersScreen(storeId: _currentStoreId),
       const AccountScreen(),
     ];
 
-    final screens = _viewMode == 'staff' ? staffScreens : customerScreens;
+    final adminScreens = [
+      AdminDashboardScreen(
+        currentRole: _viewMode,
+        onRoleChange: _setViewMode,
+        canUseAdmin: _canUseAdmin,
+      ),
+      const AdminMenuEditorScreen(),
+      const AdminStaffScreen(),
+      const AdminSettingsScreen(),
+    ];
+
+    final screens = _viewMode == 'staff'
+        ? staffScreens
+        : _viewMode == 'admin'
+            ? adminScreens
+            : customerScreens;
     return Scaffold(
       body: screens[_index],
       bottomNavigationBar: NavigationBar(
@@ -387,12 +410,27 @@ class _RootShellState extends State<RootShell> {
         onDestinationSelected: (value) {
           setState(() => _index = value);
         },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.menu_book), label: 'Menu'),
-          NavigationDestination(icon: Icon(Icons.receipt_long), label: 'Orders'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Account'),
-        ],
+        destinations: _viewMode == 'admin'
+            ? const [
+                NavigationDestination(
+                    icon: Icon(Icons.dashboard), label: 'Dashboard'),
+                NavigationDestination(
+                    icon: Icon(Icons.menu_book), label: 'Menu Editor'),
+                NavigationDestination(
+                    icon: Icon(Icons.group), label: 'Staff'),
+                NavigationDestination(
+                    icon: Icon(Icons.settings), label: 'Settings'),
+              ]
+            : const [
+                NavigationDestination(
+                    icon: Icon(Icons.home_rounded), label: 'Home'),
+                NavigationDestination(
+                    icon: Icon(Icons.menu_book), label: 'Menu'),
+                NavigationDestination(
+                    icon: Icon(Icons.receipt_long), label: 'Orders'),
+                NavigationDestination(
+                    icon: Icon(Icons.person), label: 'Account'),
+              ],
       ),
     );
   }

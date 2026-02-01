@@ -66,6 +66,75 @@ create table if not exists store_drink_availability (
   primary key (store_id, drink_id)
 );
 
+-- Categories
+create table if not exists categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  sort_order integer not null default 0,
+  is_active boolean not null default true
+);
+
+-- Items
+create table if not exists items (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid references categories(id) on delete set null,
+  name text not null,
+  description text,
+  price numeric(10,2) not null default 0,
+  image_url text,
+  is_active boolean not null default true
+);
+
+-- Store-specific price overrides (optional)
+create table if not exists store_item_prices (
+  store_id uuid references stores(id) on delete cascade,
+  item_id uuid references items(id) on delete cascade,
+  price numeric(10,2) not null,
+  primary key (store_id, item_id)
+);
+
+-- Staff profiles
+create table if not exists staff_profiles (
+  id uuid primary key default gen_random_uuid(),
+  auth_user_id uuid not null,
+  store_id uuid references stores(id) on delete set null,
+  role text not null default 'staff',
+  is_active boolean not null default true
+);
+
+-- Staff permissions
+create table if not exists staff_permissions (
+  staff_id uuid references staff_profiles(id) on delete cascade,
+  can_manage_menu boolean not null default false,
+  can_manage_orders boolean not null default false,
+  can_view_finance boolean not null default false,
+  can_manage_staff boolean not null default false,
+  can_view_audit boolean not null default false,
+  primary key (staff_id)
+);
+
+-- Audit log
+create table if not exists audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid,
+  action text not null,
+  entity_type text,
+  entity_id uuid,
+  created_at timestamp with time zone default now()
+);
+
+-- Reviews
+create table if not exists reviews (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid,
+  rating integer not null,
+  comment text,
+  created_at timestamp with time zone default now()
+);
+
+-- Storage bucket for product images
+-- Create a public bucket named "product-images" in Storage.
+
 -- Orders (ensure these columns exist)
 alter table orders
   add column if not exists store_name text,
