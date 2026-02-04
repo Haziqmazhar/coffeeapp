@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -5,6 +7,16 @@ import '../data/supabase_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:storage_client/storage_client.dart';
 import '../theme/coffee_palette.dart';
+
+String _resolveProductImageUrl(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return '';
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+  final path = value.startsWith('/') ? value.substring(1) : value;
+  return supabase.storage.from('product-images').getPublicUrl(path);
+}
 
 class AdminMenuEditorScreen extends StatefulWidget {
   const AdminMenuEditorScreen({super.key});
@@ -16,31 +28,58 @@ class AdminMenuEditorScreen extends StatefulWidget {
 class _AdminMenuEditorScreenState extends State<AdminMenuEditorScreen> {
   final _service = _AdminMenuService();
   late Future<_MenuData> _dataFuture;
+  RealtimeChannel? _menuRealtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _dataFuture = _service.loadMenu();
+    _menuRealtimeChannel = supabase
+        .channel('admin-menu-editor-live')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'items',
+          callback: (_) => _refreshNow(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'categories',
+          callback: (_) => _refreshNow(),
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    final channel = _menuRealtimeChannel;
+    if (channel != null) {
+      supabase.removeChannel(channel);
+    }
+    super.dispose();
   }
 
   void _refresh() {
     setState(() => _dataFuture = _service.loadMenu());
   }
 
+  Future<void> _refreshNow() async {
+    final fresh = await _service.loadMenu();
+    if (!mounted) return;
+    setState(() => _dataFuture = Future<_MenuData>.value(fresh));
+  }
+
   Future<void> _openEditor({
     required List<CategoryItem> categories,
     AdminItem? item,
   }) async {
-    final result = await showModalBottomSheet<_ItemDraft>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: CoffeePalette.cream,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => _ItemEditorSheet(
-        item: item,
-        categories: categories,
+    final result = await Navigator.of(context).push<_ItemDraft>(
+      MaterialPageRoute(
+        builder: (_) => _ItemEditorPage(
+          item: item,
+          categories: categories,
+        ),
       ),
     );
     if (result == null) return;
@@ -49,7 +88,7 @@ class _AdminMenuEditorScreenState extends State<AdminMenuEditorScreen> {
     } else {
       await _service.updateItem(item.id, result);
     }
-    _refresh();
+    await _refreshNow();
   }
 
   Future<void> _openDeletePicker(List<AdminItem> items) async {
@@ -62,8 +101,31 @@ class _AdminMenuEditorScreenState extends State<AdminMenuEditorScreen> {
       builder: (_) => _DeleteItemSheet(items: items),
     );
     if (picked == null) return;
+    final shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete item?'),
+            content: Text('Remove "${picked.name}" from the menu?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('No'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: CoffeePalette.espresso,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!shouldDelete) return;
     await _service.deleteItem(picked.id);
-    _refresh();
+    await _refreshNow();
   }
 
   @override
@@ -317,6 +379,8 @@ class _ItemImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedUrl = _resolveProductImageUrl(imageUrl);
+    final hasImage = resolvedUrl.isNotEmpty;
     return Container(
       height: 56,
       width: 56,
@@ -324,15 +388,19 @@ class _ItemImage extends StatelessWidget {
         color: CoffeePalette.caramelSoft,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: imageUrl.isEmpty
+      child: !hasImage
           ? const Icon(Icons.image_outlined, color: CoffeePalette.espresso)
           : ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.network(
-                imageUrl,
+                resolvedUrl,
                 fit: BoxFit.cover,
                 width: 56,
                 height: 56,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.image_outlined,
+                  color: CoffeePalette.espresso,
+                ),
               ),
             ),
     );
@@ -390,8 +458,8 @@ class _ItemDraft {
   final bool isActive;
 }
 
-class _ItemEditorSheet extends StatefulWidget {
-  const _ItemEditorSheet({
+class _ItemEditorPage extends StatefulWidget {
+  const _ItemEditorPage({
     required this.item,
     required this.categories,
   });
@@ -400,10 +468,10 @@ class _ItemEditorSheet extends StatefulWidget {
   final List<CategoryItem> categories;
 
   @override
-  State<_ItemEditorSheet> createState() => _ItemEditorSheetState();
+  State<_ItemEditorPage> createState() => _ItemEditorPageState();
 }
 
-class _ItemEditorSheetState extends State<_ItemEditorSheet> {
+class _ItemEditorPageState extends State<_ItemEditorPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _priceController;
@@ -448,183 +516,291 @@ class _ItemEditorSheetState extends State<_ItemEditorSheet> {
     setState(() => _uploading = true);
     try {
       final bytes = await file.readAsBytes();
-      final path =
-          'products/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ext = file.path.contains('.')
+          ? file.path.split('.').last.toLowerCase()
+          : 'jpg';
+      final unique = '${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
+      final path = 'products/$unique.$ext';
       await supabase.storage.from('product-images').uploadBinary(
             path,
             bytes,
             fileOptions: FileOptions(
-              contentType: 'image/jpeg',
+              contentType: file.mimeType ?? 'image/jpeg',
               upsert: true,
             ),
           );
       final publicUrl =
           supabase.storage.from('product-images').getPublicUrl(path);
+
+      // If editing an existing item, persist image immediately as well.
+      if (widget.item != null) {
+        await supabase.from('items').update({'image_url': publicUrl}).eq(
+              'id',
+              widget.item!.id,
+            );
+      }
+
       _imageController.text = publicUrl;
       setState(() {});
-    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to upload photo.')),
+        const SnackBar(content: Text('Photo uploaded successfully.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload photo: $error')),
       );
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomPadding),
+  Widget _section({
+    required String title,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: CoffeePalette.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.item == null ? 'Add Item' : 'Edit Item',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          Center(child: _ItemImage(imageUrl: _imageController.text)),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
-          Center(
-            child: OutlinedButton.icon(
-              onPressed: _uploading ? null : _pickAndUploadImage,
-              icon: _uploading
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.photo_library_outlined),
-              label: const Text('Upload photo'),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: CoffeePalette.espresso),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              labelText: 'Name',
-              filled: true,
-              fillColor: CoffeePalette.card,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _descriptionController,
-            decoration: InputDecoration(
-              labelText: 'Description',
-              filled: true,
-              fillColor: CoffeePalette.card,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _priceController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: 'Price',
-              filled: true,
-              fillColor: CoffeePalette.card,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: _selectedCategoryId,
-            items: widget.categories
-                .map(
-                  (category) => DropdownMenuItem<String>(
-                    value: category.id,
-                    child: Text(category.name),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) => setState(() => _selectedCategoryId = value),
-            decoration: InputDecoration(
-              labelText: 'Category',
-              filled: true,
-              fillColor: CoffeePalette.card,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            value: _isActive,
-            onChanged: (value) => setState(() => _isActive = value),
-            title: const Text('Active'),
-            activeColor: CoffeePalette.espresso,
-            contentPadding: EdgeInsets.zero,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: CoffeePalette.espresso),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    final price =
-                        double.tryParse(_priceController.text.trim()) ?? 0;
-                    Navigator.pop(
-                      context,
-                      _ItemDraft(
-                        name: _nameController.text.trim(),
-                        description: _descriptionController.text.trim(),
-                        price: price,
-                        imageUrl: _imageController.text.trim(),
-                        categoryId: _selectedCategoryId,
-                        isActive: _isActive,
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: CoffeePalette.espresso,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('Save'),
-                ),
-              ),
-            ],
-          ),
+          child,
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: CoffeePalette.cream,
+      appBar: AppBar(
+        backgroundColor: CoffeePalette.cream,
+        elevation: 0,
+        title: Text(widget.item == null ? 'Add Item' : 'Edit Item'),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        width: double.infinity,
+                        height: 220,
+                        color: CoffeePalette.caramelSoft,
+                child: _imageController.text.trim().isEmpty
+                            ? const Icon(
+                                Icons.image_outlined,
+                                color: CoffeePalette.espresso,
+                                size: 48,
+                              )
+                            : Image.network(
+                                _resolveProductImageUrl(_imageController.text.trim()),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.broken_image_outlined,
+                                  color: CoffeePalette.espresso,
+                                  size: 48,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _uploading ? null : _pickAndUploadImage,
+                        icon: _uploading
+                            ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.photo_library_outlined),
+                        label: Text(
+                            _uploading ? 'Uploading...' : 'Upload product photo'),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: CoffeePalette.espresso),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _section(
+                      title: 'Item Details',
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _nameController,
+                            decoration: InputDecoration(
+                              labelText: 'Name',
+                              filled: true,
+                              fillColor: CoffeePalette.cream,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _descriptionController,
+                            maxLines: 2,
+                            decoration: InputDecoration(
+                              labelText: 'Description',
+                              filled: true,
+                              fillColor: CoffeePalette.cream,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _section(
+                      title: 'Pricing & Category',
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _priceController,
+                            keyboardType:
+                                const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              labelText: 'Price',
+                              prefixText: '\$ ',
+                              filled: true,
+                              fillColor: CoffeePalette.cream,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<String>(
+                            value: _selectedCategoryId,
+                            items: widget.categories
+                                .map(
+                                  (category) => DropdownMenuItem<String>(
+                                    value: category.id,
+                                    child: Text(category.name),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) =>
+                                setState(() => _selectedCategoryId = value),
+                            decoration: InputDecoration(
+                              labelText: 'Category',
+                              filled: true,
+                              fillColor: CoffeePalette.cream,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _section(
+                      title: 'Availability',
+                      child: Row(
+                        children: [
+                          const Expanded(child: Text('Active item')),
+                          Switch(
+                            value: _isActive,
+                            onChanged: (value) =>
+                                setState(() => _isActive = value),
+                            activeColor: CoffeePalette.espresso,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+              decoration: const BoxDecoration(
+                color: CoffeePalette.cream,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    offset: Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: CoffeePalette.espresso),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final price =
+                            double.tryParse(_priceController.text.trim()) ?? 0;
+                        Navigator.pop(
+                          context,
+                          _ItemDraft(
+                            name: _nameController.text.trim(),
+                            description: _descriptionController.text.trim(),
+                            price: price,
+                            imageUrl: _imageController.text.trim(),
+                            categoryId: _selectedCategoryId,
+                            isActive: _isActive,
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: CoffeePalette.espresso,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Save Item'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

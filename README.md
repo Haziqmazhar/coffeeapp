@@ -156,6 +156,36 @@ alter table users
 -- Drinks (ensure availability flag exists)
 alter table drinks
   add column if not exists is_available boolean not null default true;
+
+-- Seed example data (3 products for Menu Editor)
+insert into stores (name, is_open)
+select 'Downtown Cafe', true
+where not exists (
+  select 1 from stores where lower(name) = 'downtown cafe'
+);
+
+insert into categories (name, sort_order, is_active)
+select * from (
+  values
+    ('Hot Coffee', 1, true),
+    ('Cold Drinks', 2, true)
+) as seed(name, sort_order, is_active)
+where not exists (
+  select 1 from categories c where lower(c.name) = lower(seed.name)
+);
+
+insert into items (category_id, name, description, price, image_url, is_active)
+select c.id, seed.name, seed.description, seed.price, seed.image_url, true
+from (
+  values
+    ('Hot Coffee', 'Classic Latte', 'Smooth, creamy', 4.50, ''),
+    ('Cold Drinks', 'Strawberry Latte', 'Berry cream blend', 4.75, ''),
+    ('Cold Drinks', 'Matcha Latte', 'Green tea delight', 4.90, '')
+) as seed(category_name, name, description, price, image_url)
+join categories c on lower(c.name) = lower(seed.category_name)
+where not exists (
+  select 1 from items i where lower(i.name) = lower(seed.name)
+);
 ```
 
 Status values used in the app:
