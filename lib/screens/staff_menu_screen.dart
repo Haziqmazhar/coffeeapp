@@ -14,14 +14,22 @@ class StaffMenuScreen extends StatefulWidget {
 
 class _StaffMenuScreenState extends State<StaffMenuScreen> {
   final _drinksService = DrinksService();
+  final _searchController = TextEditingController();
   List<Drink> _drinks = [];
   bool _loading = true;
   bool _saving = false;
+  String _selectedCategory = 'All';
 
   @override
   void initState() {
     super.initState();
     _loadDrinks();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -111,12 +119,86 @@ class _StaffMenuScreenState extends State<StaffMenuScreen> {
         ),
       );
     }
+    final categories = <String>{};
+    for (final drink in _drinks) {
+      final category = drink.category ?? '';
+      if (category.isNotEmpty) {
+        categories.add(category);
+      }
+    }
+    final categoryList = ['All', ...categories.toList()..sort()];
+    if (!categoryList.contains(_selectedCategory)) {
+      _selectedCategory = 'All';
+    }
+
+    final query = _searchController.text.trim().toLowerCase();
+    final filtered = _drinks.where((drink) {
+      final category = drink.category ?? '';
+      final matchesCategory =
+          _selectedCategory == 'All' || category == _selectedCategory;
+      final priceText = drink.price.toStringAsFixed(2);
+      final matchesQuery = query.isEmpty ||
+          drink.name.toLowerCase().contains(query) ||
+          drink.description.toLowerCase().contains(query) ||
+          category.toLowerCase().contains(query) ||
+          priceText.contains(query);
+      return matchesCategory && matchesQuery;
+    }).toList();
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-      itemCount: _drinks.length,
+      itemCount: filtered.length + 2,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final drink = _drinks[index];
+        if (index == 0) {
+          return TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search items',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: CoffeePalette.card,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onChanged: (_) => setState(() {}),
+          );
+        }
+        if (index == 1) {
+          return SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: categoryList.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, chipIndex) {
+                final label = categoryList[chipIndex];
+                final selected = label == _selectedCategory;
+                return ChoiceChip(
+                  label: Text(label),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _selectedCategory = label),
+                  selectedColor: CoffeePalette.espresso,
+                  labelStyle: TextStyle(
+                    color: selected ? Colors.white : CoffeePalette.espresso,
+                  ),
+                  backgroundColor: CoffeePalette.card,
+                  shape: StadiumBorder(
+                    side: BorderSide(
+                      color: selected
+                          ? CoffeePalette.espresso
+                          : CoffeePalette.espressoSoft,
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        }
+
+        final drink = filtered[index - 2];
         return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -132,22 +214,30 @@ class _StaffMenuScreenState extends State<StaffMenuScreen> {
           ),
           child: Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      drink.name,
-                      style: Theme.of(context).textTheme.titleMedium,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          drink.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          drink.isAvailable ? 'Available' : 'Unavailable',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '\$${drink.price.toStringAsFixed(2)}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: CoffeePalette.espresso),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      drink.isAvailable ? 'Available' : 'Unavailable',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
+                  ),
               Switch(
                 value: drink.isAvailable,
                 onChanged: _saving

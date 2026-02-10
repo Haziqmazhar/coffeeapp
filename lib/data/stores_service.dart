@@ -28,6 +28,13 @@ class StoresService {
         .toList();
   }
 
+  Future<Store?> fetchStoreById(String storeId) async {
+    final response =
+        await supabase.from('stores').select().eq('id', storeId).maybeSingle();
+    if (response == null) return null;
+    return Store.fromMap(response as Map<String, dynamic>);
+  }
+
   Future<void> setStoreOpen(String storeId, bool isOpen) async {
     await supabase.from('stores').update({'is_open': isOpen}).eq('id', storeId);
   }

@@ -379,6 +379,7 @@ class _RootShellState extends State<RootShell> {
         currentRole: _viewMode,
         onRoleChange: _setViewMode,
         canUseAdmin: _canUseAdmin,
+        storeId: _currentStoreId,
       ),
       StaffMenuScreen(storeId: _currentStoreId),
       StaffOrdersScreen(storeId: _currentStoreId),

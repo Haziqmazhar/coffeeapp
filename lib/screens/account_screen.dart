@@ -442,47 +442,28 @@ class _AccountScreenState extends State<AccountScreen> {
           if (session == null)
             Column(
               children: [
-                ElevatedButton(
-                  onPressed: () async {
-                    final signedIn = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AuthScreen()),
-                    );
-                    if (signedIn == true) {
-                      await _loadProfile();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: CoffeePalette.espresso,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('Sign in'),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton(
-                  onPressed: () async {
-                    final signedIn = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AuthScreen(requiredRole: 'staff'),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final signedIn = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AuthScreen()),
+                      );
+                      if (signedIn == true) {
+                        await _loadProfile();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: CoffeePalette.espresso,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
                       ),
-                    );
-                    if (signedIn == true) {
-                      await _loadProfile();
-                    }
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: CoffeePalette.espresso),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: const Text('Sign in'),
                   ),
-                  child: const Text('Staff login'),
                 ),
               ],
             )
